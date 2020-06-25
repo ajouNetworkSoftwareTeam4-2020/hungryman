@@ -250,16 +250,16 @@ int main(void) {
             (SOCKADDR*)&clientaddr, sizeof(clientaddr));
 
         retval = recvfrom(sock, clientinfo.order, sizeof(clientinfo.order), 0, (SOCKADDR*)&clientaddr, &addrlen);
-        clientinfo.order[retval] = '\0';
+        /*clientinfo.order[retval] = '\0';
         sprintf(ordertime, "%d년 %월 %일 %d시 %d분", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,tm.tm_min);
-
+        */
 
         /*주문 업데이트해줘야한다.*/
-        sprintf(query, "insert into ordering (storename,menuname,ridername,storestatus,riderstatus) values (\"%s\",\"%s\",\"%s\",%d,%d);", clientinfo.storename, clientinfo.order,NULL,NULL,NULL);
+        sprintf(query, "insert into ordering (storename,menuname,ridername,storestatus,riderstatus) values (\"%s\",\"%s\",\"%s\",%d);", clientinfo.storename, clientinfo.order,NULL,0,0);
         mysql_query(conn, query);
 
         /*주문 내역 출력시켜서 send 뾱*/
-        sprintf(orderinfo, "\n===%s 주문정보===\n상점이름 : %s \n 메뉴 : %s \n",ordertime, clientinfo.storename, clientinfo.order);
+        sprintf(orderinfo, "\n===주문정보===\n상점이름 : %s \n 메뉴 : %s \n", clientinfo.storename, clientinfo.order);
         printf("%s", orderinfo);
      
   
