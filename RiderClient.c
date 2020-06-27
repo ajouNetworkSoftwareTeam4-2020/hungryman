@@ -40,6 +40,7 @@ typedef struct adminprotocol {
 
 //리스트 안에 들어가는 구조체
 typedef struct StoreInfo {
+	int no;
 	char storename[45];
 	char menuname[50];
 }StoreInfo;
@@ -54,6 +55,9 @@ typedef struct ListProtocol {
 //주문 승락시 필요한 프로토콜
 typedef struct AcceptProtocol {
 	int flag;
+	int itemid;
+	int userid;
+	int result;
 }AcceptProtocol;
 
 // 소켓 함수 오류 출력 후 종료
@@ -177,9 +181,14 @@ int main(int argc, char* argv[])
 		printf("  * 1. 주문 접수하기               *\n");
 		printf("  * 2. 광고 등록하기               *\n");
 		printf("  * 3. 배달 완료하기               *\n");
+		printf("  * 4. 종료하기                    *\n");
 		printf("  **********************************\n");
 		printf("원하시는 작업 번호를 입력하세요 => ");
 		scanf("%d", &whatdo);
+
+		if (whatdo == 4) {
+			break;
+		}
 
 		ListProtocol* request = (ListProtocol*)malloc(sizeof(ListProtocol));
 		switch (whatdo) {
@@ -235,10 +244,68 @@ int main(int argc, char* argv[])
 					i+1, returnlist->info[i].storename);
 			}
 		}
+		printf(" !! 되돌아가기   => 0번을 입력하세요\n");
 		printf("------------------------------------------------------\n");
 
+		//리스트 선택 후 처리
 		printf("\n ----- 원하는 리스트 번호를 선택하세요 -----\n");
+		int choicelist = 1;
+		scanf("%d", &choicelist);
+		if (choicelist == 0) {
+			printf("처음으로 되돌아갑니다. \n");
+			continue;
+		}
+
+		if ((choicelist < 1) && (choicelist > returnlist->numofstore)) {
+			printf("존재하지 않은 리스트입니다. 처음으로 돌아갑니다.\n");
+		}
+		
+		AcceptProtocol* senddata = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
+		senddata->userid = identity;
+		switch (whatdo) {
+		case 1:
+			senddata->flag = 6;
+			senddata->itemid = (returnlist->info[choicelist - 1]).no;
+			break;
+		case 2:
+			senddata->flag = 7;
+			senddata->itemid = (returnlist->info[choicelist - 1]).no;
+			break;
+		case 3:
+			senddata->flag = 8;
+			senddata->itemid = (returnlist->info[choicelist - 1]).no;
+			break;
+		default:
+			break;
+		}
+		retval = sendto(sock, (char*)senddata, sizeof(AcceptProtocol), 0,
+			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
+		if (retval == SOCKET_ERROR) {
+			err_display("sendto()");
+			continue;
+		}
+		free(senddata);
+
+		addrlen = sizeof(peeraddr);
+		retval = recvfrom(sock, buf, BUFSIZE, 0,
+			(SOCKADDR*)&peeraddr, &addrlen);
+		
+		AcceptProtocol* returnaccept = buf;
+		if (returnaccept->result == 1) {
+			printf("정상적으로 처리되었습니다.\n");
+			continue;
+		}
+		else {
+			if (whatdo == 1) {
+				printf("이미 누군가가 가져갔네요.\n");
+			}
+			else {
+				printf("서버에 문제가 있네요...\n");
+			}
+			break;
+		}
 	}
+	printf("종료하였습니다. 감사합니다.\n");
 	// closesocket()
 	closesocket(sock);
 

@@ -39,6 +39,7 @@ typedef struct adminprotocol {
 
 //리스트 안에 들어가는 구조체
 typedef struct StoreInfo {
+	int no;
 	char storename[45];
 	char menuname[50];
 }StoreInfo;
@@ -53,6 +54,9 @@ typedef struct ListProtocol {
 //주문 승락시 필요한 프로토콜
 typedef struct AcceptProtocol {
 	int flag;
+	int itemid;
+	int userid;
+	int result;
 }AcceptProtocol;
 
 void err_quit(char* msg)
@@ -149,17 +153,17 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 
 	switch (flag) {
 	case 3:
-		sprintf(query, "select storename, menuname from ordering where riderstatus = 0 limit 7");
+		sprintf(query, "select _no, storename, menuname from ordering where riderstatus = 0 limit 7");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
 	case 4:
-		sprintf(query, "select storename from advertisement where ridername is null limit 7");
+		sprintf(query, "select _no, storename from advertisement where ridername is null limit 7");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
 	case 5:
-		sprintf(query, "select storename, menuname from ordering where riderstatus = 1 and storestatus = 2 limit 7");
+		sprintf(query, "select _no, storename, menuname from ordering where riderstatus = 1 and storestatus = 2 limit 7");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
@@ -167,17 +171,50 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 
 	listresult->numofstore = 0;
 	while (row = mysql_fetch_row(res)) {
-		strcpy(listresult->info[listresult->numofstore].storename, row[0]);
+		listresult->info[listresult->numofstore].no = atoi(row[0]);
+		strcpy(listresult->info[listresult->numofstore].storename, row[1]);
 		if (listresult->flag != 4) {
-			strcpy(listresult->info[listresult->numofstore].menuname, row[1]);
+			strcpy(listresult->info[listresult->numofstore].menuname, row[2]);
 		}
 		listresult->numofstore++;
 	}
 	mysql_free_result(res);
 }
 
-void acceptprocess(char* buf, char* response, MYSQL* conn) {
+void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* conn) {
+	int flag = acceptbuf ->flag;
+	char query[200];
+	MYSQL_RES* res = NULL;
+	MYSQL_ROW row;
 
+	sprintf(query, "select ridername from rider where _no = %d", acceptbuf->userid);
+	printf("%s", query);
+	mysql_query(conn, query);
+	res = mysql_store_result(conn);
+	row = mysql_fetch_row(res);
+	char ridername[40];
+	strcpy(ridername, row[0]);
+	mysql_free_result(res);
+
+	int num_rows = 0;
+	switch (flag) {
+	case 6:
+		sprintf(query, "update ordering set riderstatus = 1, ridername = \"%s\" where riderstatus = 0 and _no = %d", ridername, acceptbuf->itemid);
+		mysql_query(conn, query);
+		num_rows = mysql_affected_rows(conn);
+		break;
+	case 7:
+		sprintf(query, "update advertisement set ridername = \"%s\" where ridername is null and _no = %d", ridername, acceptbuf->itemid);
+		mysql_query(conn, query);
+		num_rows = mysql_affected_rows(conn);
+		break;
+	case 8:
+		sprintf(query, "update ordering set riderstatus = 2 where riderstatus = 1 and storestatus = 2 and _no = %d", acceptbuf->itemid);
+		mysql_query(conn, query);
+		num_rows = mysql_affected_rows(conn);
+		break;
+	}
+	response->result = num_rows;
 }
 
 int main(int argc, char* argv[])
@@ -266,8 +303,17 @@ int main(int argc, char* argv[])
 			break;
 		case 6: case 7: case 8:
 			response = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
-			listprocess((AcceptProtocol*)buf, (AcceptProtocol*)response, conn); break;
-		default: break;
+			acceptprocess((AcceptProtocol*)buf, (AcceptProtocol*)response, conn); 
+			retval = sendto(sock, response, sizeof(ListProtocol), 0,
+				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
+			if (retval == SOCKET_ERROR) {
+				err_display("sendto()");
+				continue;
+			}
+			break;
+		default: 
+			printf("wrong flag error\n");
+			break;
 		}
 
 		free(response);
