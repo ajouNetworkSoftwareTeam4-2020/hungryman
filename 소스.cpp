@@ -4,12 +4,18 @@
 
 #define BUFSIZE 512
 
-struct infotoClient {
+struct infotoSend {
 	char id[20];
 	char pw[20];
 	char storename[20];
 	char order[20];
 	char selectnum[100];
+	char logininfo[100];
+	char menu[200];
+};
+struct infotoRecv {
+	char store[200];
+	char choosemenu[200];
 };
 // 소켓 함수 오류 출력 후 종료
 void err_quit(const char* msg)
@@ -43,7 +49,13 @@ void err_display(const char* msg)
 int main(int argc, char* argv[])
 {
 	int retval;
-	infotoClient clientinfo;
+	int answer;
+	int logincount = 0;
+
+	//로그인할건지 회원가입할 것인지에 대해 물어보는 int 
+	infotoRecv recvinfo;
+	infotoSend sendinfo;
+
 	// 윈속 초기화
 	WSADATA wsa;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
@@ -68,61 +80,48 @@ int main(int argc, char* argv[])
 
 	// 서버와 데이터 통신
 	while (1) {
-		// 데이터 입력
+		printf("\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n");
+		printf("┃                                ┃\n");
+		printf("┃      최고의 배달 플랫폼        ┃\n");
+		printf("┃     [ H U N G R Y M E N ]      ┃\n");
+		printf("┃                                ┃\n");
+		printf("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n");
 
 
-		/*ID 입력*/
-		printf("ID 입력 : ");
-		scanf("%s", clientinfo.id);
-		len = strlen(clientinfo.id);
-		clientinfo.id[len] = '\0';
+		/*1. 회원가입 혹은 로그인 통신*/
+		while (logincount == 0) {
+			addrlen = sizeof(peeraddr);
 
-		retval = sendto(sock, clientinfo.id, strlen(clientinfo.id), 0,
-			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
-		if (retval == SOCKET_ERROR) {
-			err_display("sendto()");
-			continue;
-		}
+			printf("  ===============================\n\n");
+			printf("     진행 할 작업을 선택하세요. \n\n");
+			printf("     1. 로그인\n");
+			printf("     2. 회원가입\n\n");
+			printf("  ===============================\n");
+			printf("   입력 : ");
+			scanf("%d", &answer);
 
-		/*PW 입력*/
-		printf("PW 입력 : ");
-		scanf("%s", clientinfo.pw);
-		len = strlen(clientinfo.pw);
-		clientinfo.pw[len] = '\0';
-		retval = sendto(sock, clientinfo.pw, strlen(clientinfo.pw), 0,
-			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
-		if (retval == SOCKET_ERROR) {
-			err_display("sendto()");
-			continue;
-		}
+			printf("\n   ID 입력 :");
+			scanf("%s", sendinfo.id);
+			len = strlen(sendinfo.id);
+			sendinfo.id[len] = '\0';
+			printf("   PW 입력 :");
+			scanf("%s", sendinfo.pw);
+			len = strlen(sendinfo.pw);
+			sendinfo.pw[len] = '\0';
 
 
-		/*카테고리 정보 받기*/
-		addrlen = sizeof(peeraddr);
-		retval = recvfrom(sock, buf, BUFSIZE, 0,
-			(SOCKADDR*)&peeraddr, &addrlen);
-		if (retval == SOCKET_ERROR) {
-			err_display("recvfrom()");
-			continue;
-		}
-		buf[retval] = '\0';
-		printf("%s ", buf);
+			if (answer == 1)//로그인하기
+				sprintf(sendinfo.logininfo, "1 %s %s", sendinfo.id, sendinfo.pw);
+			else //회원가입하기
+				sprintf(sendinfo.logininfo, "2 %s %s", sendinfo.id, sendinfo.pw);
 
-		/*카테고리 선택해서 send보내기 */
-		scanf("%s", clientinfo.selectnum);
-		len = strlen(clientinfo.selectnum);
-		clientinfo.selectnum[len] = '\0';
-		retval = sendto(sock, clientinfo.selectnum, len, 0,
-			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
-		if (retval == SOCKET_ERROR) {
-			err_display("sendto()");
-			continue;
-		}
 
-		printf("\n");
-		/*상점 정보 받고 출력하기*/
-		//while문을 send 없을 때 동안 돌아야 한다. -> 선택 : 멘트 들어올 때 중단 할 수 있도록 했다.
-		while (1) {
+			retval = sendto(sock, sendinfo.logininfo, sizeof(sendinfo.logininfo), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
+			if (retval == SOCKET_ERROR) {
+				printf("sendto()");
+				continue;
+			}
+			/*회원가입 혹은 로그인 정보 받기*/
 			retval = recvfrom(sock, buf, BUFSIZE, 0,
 				(SOCKADDR*)&peeraddr, &addrlen);
 			if (retval == SOCKET_ERROR) {
@@ -130,31 +129,88 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			buf[retval] = '\0';
-			printf("%s", buf);
-			if (strcmp(buf, "상점이름 : ") == 0) {
-				scanf("%s", clientinfo.storename);
-				len = strlen(clientinfo.storename);
-				clientinfo.storename[len] = '\0';
-				retval = sendto(sock, clientinfo.storename, strlen(clientinfo.storename), 0,
-					(SOCKADDR*)&serveraddr, sizeof(serveraddr));
+			printf(" %s\n", buf);
+
+			if (strcmp(buf, "회원가입 완료\n") == 0 || strcmp(buf, "로그인 완료 !\n") == 0) {
+				logincount = 1;
+				//printf("끝!\n");
+				break;
 			}
-			if (strcmp(buf, "quit") == 0)
+		}
+
+		/*2. 카테고리 입력받고, 원하는 카테고리 전송하기
+		만약, 카테고리 내에서 상점이 없다면 다시 물어본다.*/
+
+		int ordercount = 0;
+		while (ordercount==0) {
+			retval = recvfrom(sock, buf, BUFSIZE, 0,
+				(SOCKADDR*)&peeraddr, &addrlen);
+			if (retval == SOCKET_ERROR) {
+				err_display("recvfrom()");
+				continue;
+			}
+			printf("\n%s", buf);
+			printf("  원하는 카테고리 번호 : ");
+			scanf("%d", &answer);
+			sprintf(sendinfo.selectnum, "%d", answer);
+
+			retval = sendto(sock, sendinfo.selectnum, sizeof(sendinfo.selectnum), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
+			if (retval == SOCKET_ERROR) {
+				printf("sendto()");
+				continue;
+			}
+			while (1) {
+				retval = recvfrom(sock, recvinfo.store, sizeof(recvinfo.store), 0,(SOCKADDR*)&peeraddr, &addrlen);
+				if (retval == SOCKET_ERROR) {
+					err_display("recvfrom()");
+					continue;
+				}
+				recvinfo.store[retval] = '\0';
+				printf("%s", recvinfo.store);
+
+				if (strcmp(recvinfo.store, "카테고리 내 주문 가능한 상점이 존재하지 않습니다") == 0) {
+					ordercount = 0;
+					break;
+				}
+				else
+					ordercount++;
+			}
+		}
+
+
+		/*3. 상점이름 전송 받고, 상점 이름과 메뉴이름 전송하기*/
+		while (1) {
+			printf("\n 상점 이름 : ");
+			scanf("%s", sendinfo.storename);
+			retval = sendto(sock, sendinfo.storename, sizeof(sendinfo.storename), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
+			if (retval == SOCKET_ERROR) {
+				printf("sendto()");
+				continue;
+			}
+			/*상점 정보 잘 입력했는지 체크*/
+			retval = recvfrom(sock,recvinfo.choosemenu,sizeof(recvinfo.choosemenu), 0, (SOCKADDR*)&peeraddr, &addrlen);
+			if (retval == SOCKET_ERROR) {
+				err_display("recvfrom()");
+				continue;
+			}
+			recvinfo.choosemenu[retval] = '\0';
+			if (strcmp(recvinfo.choosemenu, 0) == 0)
+				continue;
+			else
 				break;
 		}
-		/*상점 이름 send하고 메뉴 이름 send*/
+		/*메뉴정보에 대한 정보 전송*/
+		scanf("%s", sendinfo.menu);
+		retval = sendto(sock, sendinfo.menu, sizeof(sendinfo.menu), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
+		if (retval == SOCKET_ERROR) {
+			printf("sendto()");
+			continue;
+		}
 
-		retval = recvfrom(sock, buf, BUFSIZE, 0,
-			(SOCKADDR*)&peeraddr, &addrlen);
-		buf[retval] = '\0';
-		printf("%s ", buf);
+		/*order에 대한 정보 받기*/
+		break;
 
-		scanf("%s", clientinfo.order);
-		len = strlen(clientinfo.order);
-		clientinfo.order[len] = '\0';
-		retval = sendto(sock, clientinfo.order, strlen(clientinfo.order), 0,
-			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
-
-
+	
 
 	}
 
