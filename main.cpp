@@ -1,17 +1,15 @@
 #include <stdio.h>
 #include <winsock.h>
 #include <string.h>
-#include <time.h>
 #include "mysql.h"
 
 #define KOREA_FOOD "koreanfood"
 #define CHINA_FOOD "chinafood"
 #define WESTERN_FOOD "westernfood"
+#define JAPAN_FOOD "japanfood"
+/*한글로 변경 UTF-8 필요*/
 
 #define BUFSIZE 512
-
-time_t ct;
-struct tm tm;
 
 void err_quit(const char* msg)
 {
@@ -43,10 +41,89 @@ void err_display(const char* msg)
 struct infotoClient {
     char id[20];
     char pw[20];
-    char storename[20];
-    char order[20];
-    int selectnum;
+    char recvlogin[100];
+    int flag;
 };
+
+struct Orderinfo {
+    char cartegory[200] = "  ===카테고리선택===\n  1.한식\n  2.양식\n  3.중식\n  4.일식\n";
+    char recvnum[200];
+    int selectnum;
+    char storename[200];
+    char recvstore[200];
+    char menuname[200];
+    char state[500];
+    int flag;
+ 
+};
+
+/*동일한 storename 있는지 체크*/
+int checkstorename(MYSQL* conn, Orderinfo o) {
+    MYSQL_RES* res;
+    MYSQL_ROW row;
+  
+    res = mysql_store_result(conn);
+    while (row = mysql_fetch_row(res)) {
+        /*만약 STORE name이 일치하면 1리턴, 일치하지 않으면 0리턴*/
+        if (strcmp(row[3], o.recvstore) == 0)
+            return 1;
+        else
+            return 0;
+
+
+    }
+}
+
+/*로그인 관련 함수*/
+int loginClient(MYSQL* conn, infotoClient s) {
+    MYSQL_RES* res;
+    MYSQL_ROW row;
+    char query[200];
+    int user_no = 0;
+
+    sprintf(query, "select _no from customer where id=\"%s\" and password=\"%s\"", s.id, s.pw);
+    mysql_query(conn, query);
+    res = mysql_store_result(conn);
+    row = mysql_fetch_row(res);
+    if (row == NULL)
+        user_no = 0;
+    else {
+        user_no = atoi(row[0]);
+    }
+    if (user_no != 0)
+        return 1;
+    /*로그인 성공*/
+    else
+        return 0;
+}
+
+/*회원가입 관련 함수*/
+int registerClient(MYSQL* conn, infotoClient s) {
+    MYSQL_RES* res;
+    MYSQL_ROW row;
+    char query[200];
+    int user_no = 0;
+
+    sprintf(query, "select _no from customer where id=\"%s\" and password=\"%s\"", s.id, s.pw);
+    mysql_query(conn, query);
+    res = mysql_store_result(conn);
+    row = mysql_fetch_row(res);
+    if (row == NULL)
+        user_no = 0;
+    else
+        user_no = atoi(row[0]);
+
+    /*이미 같은 user name 존재*/
+    if (user_no != 0)
+        return 1;
+    /*회원가입 성공*/
+    else {
+        sprintf(query, "insert into customer(id, password) values (\'%s\', \'%s\');",
+            s.id, s.pw);
+        mysql_query(conn, query);
+    }
+}
+
 
 
 int main(void) {
@@ -55,12 +132,8 @@ int main(void) {
     MYSQL* conn; //mysql과의 커넥션을 잡는데 지속적으로 사용되는 변수에요.   
     MYSQL_RES* res;  //쿼리문에 대한 result값을 받는 위치변수에요.   
     MYSQL_ROW row;   //쿼리문에 대한 실제 데이터값이 들어있는 변수에요.   
-    int count = 0;
-    char query[255];
-    char number[100];
-    int check=0; //중복된 id인지 체크
-    char category[100]={"\n===카테고리===\n1.한식\n2.양식\n3.중식\n선택 : "};
-    char orderinfo[255];
+    int len;
+    char query[200];
 
     const char* server = "localhost";  //서버의 경로인데요 localhost로 하면 자기 컴퓨터란 의미랍니다.   
     const char* user = "root"; //mysql로그인 아이디인데요. 기본적으로 별다른 설정이 없으면 root에요   
@@ -73,13 +146,13 @@ int main(void) {
     int addrlen;
     char buf[BUFSIZE];
     char buftemp[BUFSIZE]="";
+
+
+
+    /*개인적으로 선언한 변수*/
+    int logincount = 0;
     infotoClient clientinfo;
-
-
-    /*time에 관련된 변수*/
-    ct = time(NULL);
-    tm = *localtime(&ct);
-    char ordertime[20];
+    Orderinfo orderinfo;
 
     // 윈속 초기화
     WSADATA wsa;
@@ -112,158 +185,176 @@ int main(void) {
 
     while (true) {
 
-        /*customer 잘들어갔는지 체크
-
-        mysql_query(conn, "select * from customer");
-        res = mysql_store_result(conn);
-
-        while (row = mysql_fetch_row(res)) {
-            for (int i = 0; i < mysql_num_fields(res); i++) {
-                //printf("%d번째\n", i);
-                printf("%s ", row[i]);
-            }
-            printf("\n");
-        }
-        */
-
         addrlen = sizeof(clientaddr);
-        /*ID 입력받기*/
-        retval = recvfrom(sock, clientinfo.id, sizeof(clientinfo), 0,(SOCKADDR*)&clientaddr, &addrlen);
-        if (retval == SOCKET_ERROR) {
-            err_display("recv id Error !");
-            continue;
-        }
-        clientinfo.id[retval] = '\0';
 
-        /*Password 입력받기*/
-        retval = recvfrom(sock, clientinfo.pw, sizeof(clientinfo), 0, (SOCKADDR*)&clientaddr, &addrlen);
-        if (retval == SOCKET_ERROR) {
-            err_display("recv pw Error !");
-            continue;
-        }
-        clientinfo.pw[retval] = '\0';
-
-        /*아이디랑 PW 맞는지 확인하고, 있으면 상점 전송 고고리 없으면 새로 등록하고 전송*/
-        mysql_query(conn, "select * from customer");
-        res = mysql_store_result(conn);
-        while (row = mysql_fetch_row(res)) {
-            if (strcmp(row[1], clientinfo.id) == 0) {
-                if (strcmp(row[2], clientinfo.pw) == 0) {
-                    /*PW랑 ID 같은 경우엔 break */
-                    break;
-                }
-                else
-                    continue;
-            }
-            else
-                check = 1;
-        }
-
-        /*check==1일 경우 등록이 필요한 경우다. 
-        check==0인 경우 등록 필요없슴둥 */
-        if (check == 1) {
-            sprintf(query, "insert into customer (id,password) values (\"%s\",\"%s\");", clientinfo.id, clientinfo.pw);
-            mysql_query(conn, query);
-            check = 0; //등록해주고 check 다시 0으로
-        }
-
-        /*카테고리 전달하고, 전달 받은 숫자 출력*/
-        retval = sendto(sock, category, sizeof(category), 0,
-            (SOCKADDR*)&clientaddr, sizeof(clientaddr));
-
-        retval = recvfrom(sock, number, sizeof(number), 0, (SOCKADDR*)&clientaddr, &addrlen);
-        if (retval == SOCKET_ERROR) {
-            err_display("recv id Error !");
-            continue;
-        }
-        number[retval] = '\0';
-        clientinfo.selectnum = atoi(number); //문자열로 받은 선택지 -> 정수형으로 변경 
-
-  
-        /*카테고리랑 맞으면 store 이름 출력*/
-
-        mysql_query(conn, "select * from store");
-        res = mysql_store_result(conn);
-        while (row = mysql_fetch_row(res)) {
-            /*한식냠*/
-            if (clientinfo.selectnum == 1) {
-                if (strcmp(row[5], KOREA_FOOD) == 0) {
-                    sprintf(buf, "%d . %s\n", ++count, row[3]);
-                    sendto(sock, buftemp, sizeof(buftemp), 0,
-                        (SOCKADDR*)&clientaddr, sizeof(clientaddr));
-                }
-                else
-                    continue;
-            }
-            /*양식냠*/
-            else if (clientinfo.selectnum == 2) {
-                if (strcmp(row[5], WESTERN_FOOD) == 0) {
-                    sprintf(buftemp, "%d.%s\n", ++count, row[3]);
-                    sendto(sock, buftemp, sizeof(buftemp), 0,
-                        (SOCKADDR*)&clientaddr, sizeof(clientaddr));
-                }
-                else
-                    continue;
-            }
-            /*중식냠*/
-            else if (clientinfo.selectnum == 3) {
-                if (strcmp(row[5], CHINA_FOOD) == 0) {
-                    sprintf(buftemp, "%d . %s\n", ++count, row[3]);
-                    sendto(sock, buftemp, sizeof(buftemp), 0,
-                        (SOCKADDR*)&clientaddr, sizeof(clientaddr));
-                }
-                else
-                    continue;
-            }
-        }
-
-        /*숫자로 입력 받을려고 했는데 너무 빣..ㅅㅔ서...걍 상점이름으로 찾겠습니다.
-        상점 이름과 메뉴이름 recv 받기*/
-        count = 0;
-        //printf("\n식당이름 :%s\n", clientinfo.storename);
- 
-        mysql_query(conn, "select * from store");
-        res = mysql_store_result(conn);
-        int right = 0;
-
-        while (true) {
-            sendto(sock, "상점이름 : ", sizeof("상점이름 : "), 0,
-                (SOCKADDR*)&clientaddr, sizeof(clientaddr));
-            retval = recvfrom(sock, clientinfo.storename, sizeof(clientinfo.storename), 0, (SOCKADDR*)&clientaddr, &addrlen);
-            clientinfo.storename[retval] = '\0';
-            while (row = mysql_fetch_row(res)) {
-                if (strcmp(clientinfo.storename, row[3]) == 0) {
-                    sendto(sock, "quit ", sizeof("quit"), 0,
-                        (SOCKADDR*)&clientaddr, sizeof(clientaddr));
-                    right = 1;
-                    break;
-                }
-                else /*상점 이름이 다른게 있는지*/
-                    continue;
-            }
-            if (right == 1)
-                break;
-            else
+        while (logincount == 0) {
+            /*회원가입과 로그인버전*/
+            retval = recvfrom(sock, clientinfo.recvlogin, sizeof(clientinfo), 0, (SOCKADDR*)&clientaddr, &addrlen);
+            if (retval == SOCKET_ERROR) {
+                err_display("recv id Error !");
                 continue;
+            }
+            clientinfo.recvlogin[retval] = '\0';
+            clientinfo.flag = atoi(clientinfo.recvlogin);
+
+
+            /*받는 메세지 flag, id, pw 순으로 구분하기*/
+            char* ptr = strtok(clientinfo.recvlogin, " ");
+            for (int i = 0; i < 3; i++) {
+                if (i == 0)
+                    clientinfo.flag = atoi(ptr);
+                else if (i == 1) {
+                    strcpy(clientinfo.id, ptr);
+                    len = strlen(ptr);
+                    clientinfo.id[len] = '\0';
+                }
+                else {
+                    strcpy(clientinfo.pw, ptr);
+                    len = strlen(ptr);
+                    clientinfo.pw[len] = '\0';
+                }
+                ptr = strtok(NULL, " ");
+            }
+
+            /*로그인 파트*/
+            if (clientinfo.flag == 1) {
+                if (loginClient(conn, clientinfo) == 0) {
+                    sendto(sock, "해당 유저가 없습니다.\n", sizeof("해당 유저가 없습니다.\n"), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    continue;
+                }
+                else {
+                    sendto(sock, "로그인 완료 !\n", sizeof("로그인 완료 !\n"), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    logincount = 1;
+                    break;
+                }
+            }
+
+            /*회원가입 파트*/
+            else if (clientinfo.flag == 2) {
+                if (registerClient(conn, clientinfo) == 1) {
+                    sendto(sock, "회원이 존재합니다.\n", sizeof("회원이 존재합니다.\n"), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    continue;
+                }
+                else {
+                    sendto(sock, "회원가입 완료\n", sizeof("회원가입 완료\n"), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    logincount = 1;
+                    break;
+                }
+            }
         }
-        sendto(sock, "메뉴이름 : ", sizeof("메뉴이름 : "), 0,
-            (SOCKADDR*)&clientaddr, sizeof(clientaddr));
 
-        retval = recvfrom(sock, clientinfo.order, sizeof(clientinfo.order), 0, (SOCKADDR*)&clientaddr, &addrlen);
-        /*clientinfo.order[retval] = '\0';
-        sprintf(ordertime, "%d년 %월 %일 %d시 %d분", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,tm.tm_min);
-        */
+        /*2. 카테고리 전달하고, 카테고리 양식 선택 받기
+        : 만약 일치하는 상점이 없다면 다시 카테고리 전달해서 물어보기*/
+        int storecount = 0;
+        while (storecount == 0) {
+            retval = sendto(sock, orderinfo.cartegory, sizeof(orderinfo.cartegory), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+            if (retval == SOCKET_ERROR) {
+                printf("send error()");
+                continue;
+            }
+            retval = recvfrom(sock, orderinfo.recvnum, sizeof(orderinfo.recvnum), 0, (SOCKADDR*)&clientaddr, &addrlen);
+            if (retval == SOCKET_ERROR) {
+                err_display("recv id Error !");
+                continue;
+            }
+            orderinfo.recvnum[retval] = '\0';
+            orderinfo.selectnum = atoi(orderinfo.recvnum);
+            //printf("선택받은 카테고리 : %d", orderinfo.selectnum);
 
-        /*주문 업데이트해줘야한다.*/
-        sprintf(query, "insert into ordering (storename,menuname,ridername,storestatus,riderstatus) values (\"%s\",\"%s\",\"%s\",%d);", clientinfo.storename, clientinfo.order,NULL,0,0);
+            /*3.카테고리에 맞는 상점 리스트 전송하기*/
+
+            mysql_query(conn, "select * from store");
+            res = mysql_store_result(conn);
+            while (row = mysql_fetch_row(res)) {
+                /*카테고리1) 한식*/
+                if (orderinfo.selectnum == 1) {
+                    if (strcmp(row[5], KOREA_FOOD) == 0) {
+                        sprintf(orderinfo.storename, "  %d)%s\n", ++storecount, row[3]);
+                        sendto(sock, orderinfo.storename, sizeof(orderinfo.storename), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    }
+                    else
+                        continue;
+                }
+                /*카테고리2) 양식*/
+                else if (orderinfo.selectnum == 2) {
+                    if (strcmp(row[5], WESTERN_FOOD) == 0) {
+                        sprintf(orderinfo.storename, "  %d)%s\n", ++storecount, row[3]);
+                        sendto(sock, orderinfo.storename, sizeof(orderinfo.storename), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    }
+                    else
+                        continue;
+                }
+
+                /*카테고리 3) 중식*/
+                else if (orderinfo.selectnum == 3) {
+                    if (strcmp(row[5], CHINA_FOOD) == 0) {
+                        sprintf(orderinfo.storename, "  %d)%s\n", ++storecount, row[3]);
+                        sendto(sock, orderinfo.storename, sizeof(orderinfo.storename), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    }
+                    else
+                        continue;
+                }
+                /*카테고리 4) 일식*/
+                else if (orderinfo.selectnum == 4) {
+                    if (strcmp(row[5], JAPAN_FOOD) == 0) {
+                        sprintf(orderinfo.storename, "  %d)%s\n", ++storecount, row[3]);
+                        sendto(sock, orderinfo.storename, sizeof(orderinfo.storename), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                    }
+                    else
+                        continue;
+                }
+
+            }
+            /*카테고리 내에 상점이 존재하지 않는 경우*/
+            if (storecount == 0) {
+                sendto(sock,"카테고리 내 주문 가능한 상점이 존재하지 않습니다.", sizeof("카테고리 내 주문 가능한 상점이 존재하지 않습니다."), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+            }
+        }
+        /*4. 상점 이름과 메뉴 이름 주문 받기*/
+        while (1) {
+            /*상점 정보받고, 리스트에 있는 상점인지 체크*/
+            retval = recvfrom(sock, orderinfo.recvstore, sizeof(orderinfo.recvstore), 0, (SOCKADDR*)&clientaddr, &addrlen);
+            if (retval == SOCKET_ERROR) {
+                err_display("recv Error !");
+                continue;
+            }
+            orderinfo.recvstore[retval] = '\0';
+            if (checkstorename(conn, orderinfo) == 1) {
+                /*메뉴이름에 대한 정보 send*/
+                retval = sendto(sock, "  메뉴 이름 : ", sizeof("  메뉴 이름 : "), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                if (retval == SOCKET_ERROR) {
+                    printf("send error()");
+                    continue;
+                }
+                break;
+            }
+            else {
+                /*다시 입력하라고 flag 0 전송*/
+                retval = sendto(sock, "0", sizeof("0"), 0, (SOCKADDR*)&clientaddr, sizeof(clientaddr));
+                if (retval == SOCKET_ERROR) {
+                    printf("send error()");
+                    continue;
+                }
+                continue;
+            }
+        }
+
+        /*메뉴에 대한 정보 recv*/
+        retval = recvfrom(sock, orderinfo.menuname, sizeof(orderinfo.menuname), 0, (SOCKADDR*)&clientaddr, &addrlen);
+        if (retval == SOCKET_ERROR) {
+            err_display("recv Error !");
+            continue;
+        }
+        orderinfo.menuname[retval] = '\0';
+
+        /*5. order에 대한 info sql에 업데이트하고 order정보 send*/
+        sprintf(query, "insert into ordering (storename,menuname,ridername,storestatus,riderstatus) values (\"%s\",\"%s\",\"%s\",%d);", orderinfo.recvstore, orderinfo.menuname, NULL, 0, 0);
         mysql_query(conn, query);
 
-        /*주문 내역 출력시켜서 send 뾱*/
-        sprintf(orderinfo, "\n===주문정보===\n상점이름 : %s \n 메뉴 : %s \n", clientinfo.storename, clientinfo.order);
-        printf("%s", orderinfo);
-     
-  
+        sprintf(orderinfo.state, "  your order:\n");
+        //주소 업데이트해서 전송하면 된다
 
+        break;
     }
     closesocket(sock);
 
