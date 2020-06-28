@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
 		//gets_s(sendinfo.address,sizeof(sendinfo.address));
 
 		gets_s(sendinfo.address,sizeof(sendinfo.address));
-		printf("%s", sendinfo.address);
+		//printf("%s", sendinfo.address);
 
 		retval = sendto(sock, sendinfo.address, sizeof(sendinfo.address), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
 		if (retval == SOCKET_ERROR) {
