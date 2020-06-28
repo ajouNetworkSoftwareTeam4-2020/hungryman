@@ -4,8 +4,8 @@
 #include<winsock.h>
 #include<stdlib.h>
 #include<iostream>
-#define BUFSIZE 45
-#define BUFFERSIZE 10000
+#define BUFSIZE 1024
+#define BUFFERSIZE 1024
 #define addressBUFSIZE 128
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
@@ -13,8 +13,8 @@
 
 const char* server = "localhost";
 const char* user = "root";
-const char* password = "3681";
-const char* database = "hungryman";
+const char* password = "1234";
+const char* database = "netproject";
 
 void err_quit(char* msg)
 {
@@ -46,12 +46,41 @@ void err_display(char* msg)
 }
 
 
-typedef struct flagprotocol {
+typedef struct Destination {
+    int type;
+    int number;
+    SOCKADDR_IN addr;
+}Destination;
+/* 제너럴 구조체
+* flag = 1; 로그인
+* flag = 2; 회원 가입
+* flag = 3; 주문 정보 요청
+* flag = 4: 광고 등록 요청
+* flag = 5: 주분 정보 변경 요청
+
+*/
+
+typedef struct flagprotocol
+{
+    Destination start;
+    Destination end;
     int flag;
     char buffer[BUFSIZE];
 }FlagProtocol;
 
-typedef struct adminprotocol {
+typedef struct advertisementprotocol
+{
+    Destination start;
+    Destination end;
+    int flag;
+    int store_index;
+    int result;
+}AdvertisementProtocol;
+
+typedef struct adminprotocol
+{
+    Destination start;
+    Destination end;
     int flag;
     char id[40];
     char password[40];
@@ -62,40 +91,35 @@ typedef struct adminprotocol {
     int result;
 }AdminProtocol;
 
-typedef struct advertisementprotocol
-{
-    int flag;
-    int store_index;
-    int result;
-
-}AdvertisementProtocol;
-
 typedef struct orderingInfo
 {
-    char foodname[BUFSIZE];
+    char foodname[30];
     char address[40];
     char status[20];
-    char ridername[40];
-    char storename[40];
-    char timestamp[40];
+    char ridername[30];
+    char storename[30];
+    char timestamp[30];
 }OrderingInfo;
 
 typedef struct orderingInfoList
 {
+    Destination start;
+    Destination end;
     int flag;
     int store_index;
     int whole_row;
-    OrderingInfo Info[10];
+    OrderingInfo Info[5];
 }OrderingInfoList;
 
 typedef struct acceptProtocol
 {
+    Destination start;
+    Destination end;
     int flag;
     int itemid;
     int store_index;
     int statusid;
     int result;
-
 }AcceptProtocol;
 
 
@@ -215,6 +239,10 @@ void getWholeOrderingInfo(MYSQL* conn, OrderingInfoList* InfoList, OrderingInfoL
     }
     commandResponse->whole_row = rowindex;
 
+    commandResponse->start.type = 1;
+    commandResponse->end.type = 0;
+    commandResponse->start.number = 1;
+    commandResponse->end.addr = InfoList->start.addr;
 }
 
 void changeOrderingStatus(MYSQL* conn, AcceptProtocol* changeInfo, AcceptProtocol* change_command_response)
@@ -267,7 +295,10 @@ void changeOrderingStatus(MYSQL* conn, AcceptProtocol* changeInfo, AcceptProtoco
         }
         rowindex++;
     }
-
+    change_command_response->start.type = 1;
+    change_command_response->end.type = 0;
+    change_command_response->start.number = 1;
+    change_command_response->end.addr = changeInfo->start.addr;
 }
 
 void insertAdvertisementInfo(MYSQL* conn, AdvertisementProtocol* advertisementInfo, AdvertisementProtocol* advertisement_command_response)
@@ -303,7 +334,10 @@ void insertAdvertisementInfo(MYSQL* conn, AdvertisementProtocol* advertisementIn
     {
         advertisement_command_response->result = 1;
     }
-
+    advertisement_command_response->start.type = 1;
+    advertisement_command_response->end.type = 0;
+    advertisement_command_response->start.number = 1;
+    advertisement_command_response->end.addr = advertisementInfo->start.addr;
 
 }
 
@@ -324,6 +358,10 @@ void loginprocess(AdminProtocol* loginbuf, AdminProtocol* response, MYSQL* conn)
 
     response->flag = 1;
 
+    response->start.type = 1;
+    response->end.type = 0;
+    response->start.number = 1;
+    response->end.addr = loginbuf->start.addr;
 }
 
 
@@ -339,7 +377,10 @@ void registerprocess(AdminProtocol* loginbuf, AdminProtocol* response, MYSQL* co
     }
 
     response->flag = 2;
-
+    response->start.type = 1;
+    response->end.type = 0;
+    response->start.number = 2;
+    response->end.addr = loginbuf->start.addr;
 }
 
 
@@ -357,7 +398,7 @@ int main(void) {
         fprintf(stderr, "%s\n", mysql_error(conn));
         exit(1);
     }
-    mysql_query(conn, "use sys");
+    mysql_query(conn, "use netproject");
 
 
     WSADATA wsa;
@@ -372,7 +413,7 @@ int main(void) {
     SOCKADDR_IN serveraddr;
     ZeroMemory(&serveraddr, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
-    serveraddr.sin_port = htons(9000);
+    serveraddr.sin_port = htons(8700);
     serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
     retval = bind(sock, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
     if (retval == SOCKET_ERROR) err_quit((char*)"bind()");
@@ -408,7 +449,6 @@ int main(void) {
 
             response = (AdminProtocol*)malloc(sizeof(AdminProtocol));
             loginprocess((AdminProtocol*)buffer, (AdminProtocol*)response, conn);
-
             retval = sendto(sock, (char*)response, sizeof(AdminProtocol), 0,
                 (SOCKADDR*)&clientaddr, sizeof(clientaddr));
 

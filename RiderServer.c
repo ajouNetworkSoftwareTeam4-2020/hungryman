@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "mysql.h"
 
-#define BUFSIZE 1000
+#define BUFSIZE 1024
 #define PORT 8400
 
 //데이터 베이스 접근 정보
@@ -23,13 +23,34 @@ const char* database = "netproject";
 * flag = 7; 광고 정보 승락
 * flag = 8; 특정 주문 상태 변화
 */
+typedef struct Destination {
+	int type;
+	int number;
+	SOCKADDR_IN addr;
+}Destination;
+
+/* 제너럴 구조체
+* 이 구조체의 flag 값은 서버가 어떤 루틴을 처리해야 하는지 알 수 있다.
+* flag = 1; 로그인
+* flag = 2; 회원 가입
+* flag = 3; 주문 정보 요청
+* flag = 4; 광고 정보 요청
+* flag = 5; 배달 과정 정보 요청
+* flag = 6; 해당 주문 승락
+* flag = 7; 광고 정보 승락
+* flag = 8; 특정 주문 상태 변화
+*/
 typedef struct flagprotocol {
+	Destination start;
+	Destination end;
 	int flag;
 	char buffer[BUFSIZE];
 }FlagProtocol;
 
 //회원 가입 및 로그인 시 필요한 프로토콜
 typedef struct adminprotocol {
+	Destination start;
+	Destination end;
 	int flag;
 	char id[40];		//회원 가입 이름
 	char name[40];		//아이디.   실패시 원인을 여기다 담음
@@ -49,14 +70,18 @@ typedef struct StoreInfo {
 
 //리스트 요청시 필요한 프로토콜
 typedef struct ListProtocol {
+	Destination start;
+	Destination end;
 	int flag;
 	int userid;
 	int numofstore;
-	StoreInfo info[6];
+	StoreInfo info[5];
 }ListProtocol;
 
 //주문 승락시 필요한 프로토콜
 typedef struct AcceptProtocol {
+	Destination start;
+	Destination end;
 	int flag;
 	int itemid;
 	int userid;
@@ -104,6 +129,11 @@ void loginprocess(AdminProtocol* loginbuf, AdminProtocol* response, MYSQL* conn)
 		strncpy(response->name, "해당 유저가 없어요", sizeof(char) * 40);
 	}
 	mysql_free_result(res);
+
+	response->start.type = 1;
+	response->end.type = 0;
+	response->start.number = 2;
+	response->end.addr = loginbuf->start.addr;
 }
 
 void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, MYSQL* conn) {
@@ -148,6 +178,11 @@ void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, 
 		}
 	}
 	mysql_free_result(res);
+
+	registerresult->start.type = 1;
+	registerresult->end.type = 0;
+	registerresult->start.number = 2;
+	registerresult->end.addr = registerbuf->start.addr;
 }
 
 void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
@@ -172,7 +207,6 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 	case 5:
 		mysql_query(conn, "set names euckr");
 		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 1 and storestatus = 2 and ridername = (select ridername from rider where _no = %d) limit 6", listbuf->userid);
-		printf("%s\n", query);
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
@@ -182,7 +216,7 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 	while (row = mysql_fetch_row(res)) {
 		listresult->info[listresult->numofstore].no = atoi(row[0]);
 		strcpy(listresult->info[listresult->numofstore].storename, row[1]);
-		if (listresult->flag != 4) {
+		if (listbuf->flag != 4) {
 			strcpy(listresult->info[listresult->numofstore].menuname, row[2]);
 			strcpy(listresult->info[listresult->numofstore].clientaddress, row[3]);
 			strcpy(listresult->info[listresult->numofstore].storeaddress, row[4]);
@@ -191,6 +225,11 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 		listresult->numofstore++;
 	}
 	mysql_free_result(res);
+
+	listresult->start.type = 1;
+	listresult->end.type = 0;
+	listresult->start.number = 2;
+	listresult->end.addr = listbuf->start.addr;
 }
 
 void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* conn) {
@@ -200,7 +239,6 @@ void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* c
 	MYSQL_ROW row;
 
 	sprintf(query, "select ridername from rider where _no = %d", acceptbuf->userid);
-	printf("%s", query);
 	mysql_query(conn, query);
 	res = mysql_store_result(conn);
 	row = mysql_fetch_row(res);
@@ -229,6 +267,11 @@ void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* c
 		break;
 	}
 	response->result = num_rows;
+
+	response->start.type = 1;
+	response->end.type = 0;
+	response->start.number = 2;
+	response->end.addr = acceptbuf->start.addr;
 }
 
 int main(int argc, char* argv[])

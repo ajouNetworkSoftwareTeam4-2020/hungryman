@@ -10,8 +10,14 @@
 #include <stdio.h>
 
 //안 넘칠 것 같지만 오류 뜨면 넘친거다.
-#define BUFSIZE 1000
-#define PORT 8400
+#define BUFSIZE 1024
+#define PORT 8600
+
+typedef struct Destination {
+	int type;
+	int number;
+	SOCKADDR_IN addr;
+}Destination;
 
 /* 제너럴 구조체 
 * 이 구조체의 flag 값은 서버가 어떤 루틴을 처리해야 하는지 알 수 있다.
@@ -25,12 +31,16 @@
 * flag = 8; 특정 주문 상태 변화
 */
 typedef struct flagprotocol {
+	Destination start;
+	Destination end;
 	int flag;
 	char buffer[BUFSIZE];
 }FlagProtocol;
 
 //회원 가입 및 로그인 시 필요한 프로토콜
 typedef struct adminprotocol {
+	Destination start;
+	Destination end;
 	int flag;
 	char id[40];		//회원 가입 이름
 	char name[40];		//아이디.   실패시 원인을 여기다 담음
@@ -50,14 +60,18 @@ typedef struct StoreInfo {
 
 //리스트 요청시 필요한 프로토콜
 typedef struct ListProtocol {
+	Destination start;
+	Destination end;
 	int flag;
 	int userid;
 	int numofstore;
-	StoreInfo info[6];
+	StoreInfo info[5];
 }ListProtocol;
 
 //주문 승락시 필요한 프로토콜
 typedef struct AcceptProtocol {
+	Destination start;
+	Destination end;
 	int flag;
 	int itemid;
 	int userid;
@@ -122,6 +136,9 @@ int main(int argc, char* argv[])
 
 		printf("\n---------------------------------\n");
 		AdminProtocol* request = (AdminProtocol*)malloc(sizeof(AdminProtocol));
+		request->start.type = 0;
+		request->end.type = 1;
+		request->end.number = 2;
 		printf("  아이디를 입력하세요 => ");
 		scanf("%s", request->id);
 		request->id[strlen(request->id)] = '\0';
@@ -195,6 +212,9 @@ int main(int argc, char* argv[])
 		}
 
 		ListProtocol* request = (ListProtocol*)malloc(sizeof(ListProtocol));
+		request->start.type = 0;
+		request->end.type = 1;
+		request->end.number = 2;
 		switch (whatdo) {
 		case 1:
 			request->flag = 3;
@@ -274,6 +294,9 @@ int main(int argc, char* argv[])
 		
 		AcceptProtocol* senddata = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
 		senddata->userid = identity;
+		senddata->start.type = 0;
+		senddata->end.type = 1;
+		senddata->end.number = 2;
 		switch (whatdo) {
 		case 1:
 			senddata->flag = 6;
@@ -290,6 +313,7 @@ int main(int argc, char* argv[])
 		default:
 			break;
 		}
+		
 		retval = sendto(sock, (char*)senddata, sizeof(AcceptProtocol), 0,
 			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 		if (retval == SOCKET_ERROR) {
@@ -314,7 +338,7 @@ int main(int argc, char* argv[])
 			else {
 				printf("서버에 문제가 있네요...\n");
 			}
-			break;
+			continue;
 		}
 	}
 	printf("종료하였습니다. 감사합니다.\n");

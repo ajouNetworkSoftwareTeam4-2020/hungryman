@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include<stdlib.h>
 #include<iostream>
-#define BUFSIZE 45
-#define BUFFERSIZE 10000
+#define BUFSIZE 1024
+#define BUFFERSIZE 1024
 #define addressBUFSIZE 128
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
@@ -38,6 +38,11 @@ void err_display(char* msg)
 	LocalFree(lpMsgBuf);
 }
 
+typedef struct Destination {
+	int type;
+	int number;
+	SOCKADDR_IN addr;
+}Destination;
 /* 제너럴 구조체
 * flag = 1; 로그인
 * flag = 2; 회원 가입
@@ -49,12 +54,16 @@ void err_display(char* msg)
 
 typedef struct flagprotocol 
 {
+	Destination start;
+	Destination end;
 	int flag;
 	char buffer[BUFSIZE];
 }FlagProtocol;
 
 typedef struct advertisementprotocol
 {
+	Destination start;
+	Destination end;
 	int flag;
 	int store_index;
 	int result;
@@ -62,6 +71,8 @@ typedef struct advertisementprotocol
 
 typedef struct adminprotocol 
 {
+	Destination start;
+	Destination end;
 	int flag;
 	char id[40];
 	char password[40];
@@ -74,24 +85,28 @@ typedef struct adminprotocol
 
 typedef struct orderingInfo
 {
-	char foodname[BUFSIZE];
+	char foodname[30];
 	char address[40];
 	char status[20];
-	char ridername[40];
-	char storename[40];
-	char timestamp[40];
+	char ridername[30];
+	char storename[30];
+	char timestamp[30];
 }OrderingInfo;
 
 typedef struct orderingInfoList
 {
+	Destination start;
+	Destination end;
 	int flag;
 	int store_index;
 	int whole_row;
-	OrderingInfo Info[10];
+	OrderingInfo Info[5];
 }OrderingInfoList;
 
 typedef struct acceptProtocol
 {
+	Destination start;
+	Destination end;
 	int flag;
 	int itemid;
 	int store_index;
@@ -160,7 +175,7 @@ int main() {
 	SOCKADDR_IN serveraddr;
 	ZeroMemory(&serveraddr, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_port = htons(9000);
+	serveraddr.sin_port = htons(8600);
 	serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	// 데이터 통신에 사용할 변수
@@ -202,6 +217,9 @@ int main() {
 			printf("password : ");
 			scanf("%s", request->password);
 			request->password[strlen(request->password)] = '\0';
+			request->start.type = 0;
+			request->end.type = 1;
+			request->end.number = 1;
 
 			getchar();
 			if (loginOrRegister == 1) request->flag = 1;
@@ -320,6 +338,9 @@ int main() {
 
 				orderList->flag = 3;
 				orderList->store_index = result_store_index;
+				orderList->start.type = 0;
+				orderList->end.type = 1;
+				orderList->end.number = 1;
 
 				retval = sendto(sock, (char*)orderList, sizeof(OrderingInfoList), 0,
 					(SOCKADDR*)&serveraddr, sizeof(serveraddr));
@@ -334,7 +355,9 @@ int main() {
 
 				advertisementRegister->flag = 4;
 				advertisementRegister->store_index = result_store_index;
-
+				advertisementRegister->start.type = 0;
+				advertisementRegister->end.type = 1;
+				advertisementRegister->end.number = 1;
 				retval = sendto(sock, (char*)advertisementRegister, sizeof(AdvertisementProtocol), 0,
 					(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 				if (retval == SOCKET_ERROR)
@@ -385,6 +408,9 @@ int main() {
 					statuscommand->itemid = listnum - 1;
 					statuscommand->store_index = result_store_index;
 					statuscommand->statusid = 1;
+					statuscommand->start.type = 0;
+					statuscommand->end.type = 1;
+					statuscommand->end.number = 1;
 
 					retval = sendto(sock, (char*)statuscommand, sizeof(AcceptProtocol), 0,
 						(SOCKADDR*)&serveraddr, sizeof(serveraddr));
