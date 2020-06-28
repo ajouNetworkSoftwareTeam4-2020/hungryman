@@ -41,3 +41,40 @@ insert into ordering(storename, menuname, ridername, storestatus, riderstatus) v
 1. 상점의 픽업 대기를 status가 2라고 가정하였습니다. 
 2.  배달원과 매칭 전 riderstatus는 0, 배달원이 선택 후 riderstatus는 1, 배달원이 배달 완료 클릭 후 riderstatus는 2로 할 생각입니다.
 
+
+
+
+## Customer 
+#### 실행 환경
+
+```
+서버 : ws2_32.lib 추가(+강의 노트), libmysql.lib 추가(+ include, lib 폴더에 추가)
+클라이언트 : ws2_32.lib 추가(+강의 노트)
+
+```
+#### 테스트 데이터 셋
+
+```
+# 주문 데이터 베이스
+insert into ordering (storename,menuname,ridername,storestatus,riderstatus,address) values ('eosong','su-si',NULL,0,0,orderinfo.addr);", orderinfo.recvstore, orderinfo.menuname, NULL, 0, 0,orderinfo.addr);
+
+# 고객 데이터 베이스
+insert into customer(id, password) values ('alswlkku','mindy');
+
+
+부수적으로 카테고리 선택에 대한 상점 목록을 출력하기 위해서
+'select * from store'을 사용하했다.
+
+```
+
+#### 코드 볼 시 가이드
+
+1. thread 부분을 앞으로 구현해야할 예정이다
+
+#### 주의 사항
+
+1. 상점 선택시 번호가 아닌 상점 이름으로 입력해야한다. (디스플레이 된 상점의 이름과 맞지 않을 경우 while문을  돈다.)
+2. 상점 선택을 제대로 했으면 메뉴 이름을 입력해주는 칸이 바로 뜨게 된다.
+3. 주소는 간단히 '수원시 팔달구 우만동 32-2' 짧게 적어주는 것이 좋다. (경기도 충청도 이런 말 필요 X) 
+4. 카테고리에 대한 부분은 store측에서 채워줘야 client 측에서 display 가능하다.
+    - 카테고리 선택 후 store가 없을 시, while문 반복
