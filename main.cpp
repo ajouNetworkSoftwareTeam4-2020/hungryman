@@ -13,7 +13,16 @@
 
 void err_quit(const char* msg)
 {
-    printf("%s\n", msg);
+    LPVOID lpMsgBuf;
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL, WSAGetLastError(),
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR)&lpMsgBuf, 0, NULL);
+    MessageBox(NULL, (LPCTSTR)lpMsgBuf, msg, MB_ICONERROR);
+    LocalFree(lpMsgBuf);
+    exit(-1);
 }
 
 // 소켓 함수 오류 출력
@@ -378,7 +387,7 @@ int main(void) {
         orderinfo.addr[retval] = '\0';
 
         //5. order에 대한 info sql에 업데이트하고 order정보 send
-        sprintf(query, "insert into ordering (storename,menuname,ridername,storestatus,riderstatus,address) values (\"%s\",\"%s\",\"%s\",%d,\"%s\");", orderinfo.recvstore, orderinfo.menuname, NULL, 0, 0,orderinfo.addr);
+        sprintf(query, "insert into ordering (storename,menuname,ridername,storestatus,riderstatus,clientaddress) values (\"%s\",\"%s\",\"%s\",%d,%d,\"%s\");", orderinfo.recvstore, orderinfo.menuname, NULL, 0, 0,orderinfo.addr);
         mysql_query(conn, query);
 
         sprintf(orderinfo.state, "\n\n  ━━━━━  주문접수완료━━━━━\n  상점이름 : %s\n  메뉴이름 : %s\n   주소 : %s\n   ━━━━━━━━━━━━━━━━━━━━\n",orderinfo.recvstore,orderinfo.menuname,orderinfo.addr);
