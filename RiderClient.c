@@ -41,15 +41,19 @@ typedef struct adminprotocol {
 //리스트 안에 들어가는 구조체
 typedef struct StoreInfo {
 	int no;
-	char storename[45];
-	char menuname[50];
+	char clientaddress[40];
+	char storeaddress[40];
+	char storename[30];
+	char menuname[30];
+	char date[20];
 }StoreInfo;
 
 //리스트 요청시 필요한 프로토콜
 typedef struct ListProtocol {
 	int flag;
+	int userid;
 	int numofstore;
-	StoreInfo info[7];
+	StoreInfo info[6];
 }ListProtocol;
 
 //주문 승락시 필요한 프로토콜
@@ -214,6 +218,7 @@ int main(int argc, char* argv[])
 			break;
 		case 3:
 			request->flag = 5;
+			request->userid = identity;
 			retval = sendto(sock, (char*)request, sizeof(ListProtocol), 0,
 				(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 			if (retval == SOCKET_ERROR) {
@@ -235,13 +240,20 @@ int main(int argc, char* argv[])
 
 		printf("\n------- 선택 리스트 ---------------------------------\n");
 		for (int i = 0; i < returnlist->numofstore; i++) {
-			if (whatdo != 2) {
-				printf("  %d =>  가게 이름 : %s , 주문 이름 : %s \n", 
-					i+1 , returnlist->info[i].storename, returnlist->info[i].menuname);
+			if (whatdo == 2) {
+				printf("  %d =>  가게 이름 : %s \n", 
+					i+1 , returnlist->info[i].storename);
 			}
 			else {
-				printf("  %d => 가게 이름 : %s \n",
+				printf("  %d => 가게 이름 : %s    ",
 					i+1, returnlist->info[i].storename);
+				printf("  %d => 손님 주소 : %s    ",
+					i + 1, returnlist->info[i].clientaddress);
+				printf("  %d => 가게 주소 : %s     ",
+					i + 1, returnlist->info[i].storeaddress);
+				printf("  %d => 날짜 : %s     ",
+					i + 1, returnlist->info[i].date);
+				printf("\n");
 			}
 		}
 		printf(" !! 되돌아가기   => 0번을 입력하세요\n");

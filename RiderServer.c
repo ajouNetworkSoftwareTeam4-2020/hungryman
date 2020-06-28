@@ -40,15 +40,19 @@ typedef struct adminprotocol {
 //리스트 안에 들어가는 구조체
 typedef struct StoreInfo {
 	int no;
-	char storename[45];
-	char menuname[50];
+	char clientaddress[40];
+	char storeaddress[40];
+	char storename[30];
+	char menuname[30];
+	char date[20];
 }StoreInfo;
 
 //리스트 요청시 필요한 프로토콜
 typedef struct ListProtocol {
 	int flag;
+	int userid;
 	int numofstore;
-	StoreInfo info[7];
+	StoreInfo info[6];
 }ListProtocol;
 
 //주문 승락시 필요한 프로토콜
@@ -134,6 +138,7 @@ void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, 
 		sprintf(query, "insert into rider(id, password, ridername) values (\'%s\', \'%s\', \'%s\');",
 			registerbuf->id, registerbuf->password, registerbuf->name);
 
+		mysql_query(conn, "set names euckr");
 		if (mysql_query(conn, query) != 0) {
 			registerresult->result = 0;
 			strncpy(registerresult->name, "생성 실패 다시해주세요", sizeof(char) * 40);
@@ -147,23 +152,27 @@ void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, 
 
 void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 	int flag = listbuf->flag;
-	char query[200];
+	char name[50];
+	char query[500];
 	MYSQL_RES* res = NULL;
 	MYSQL_ROW row;
 
 	switch (flag) {
 	case 3:
-		sprintf(query, "select _no, storename, menuname from ordering where riderstatus = 0 limit 7");
+		mysql_query(conn, "set names euckr");
+		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 0 limit 6");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
 	case 4:
-		sprintf(query, "select _no, storename from advertisement where ridername is null limit 7");
+		sprintf(query, "select _no, storename from advertisement where ridername is null limit 6");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
 	case 5:
-		sprintf(query, "select _no, storename, menuname from ordering where riderstatus = 1 and storestatus = 2 limit 7");
+		mysql_query(conn, "set names euckr");
+		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 1 and storestatus = 2 and ridername = (select ridername from rider where _no = %d) limit 6", listbuf->userid);
+		printf("%s\n", query);
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
@@ -175,6 +184,9 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 		strcpy(listresult->info[listresult->numofstore].storename, row[1]);
 		if (listresult->flag != 4) {
 			strcpy(listresult->info[listresult->numofstore].menuname, row[2]);
+			strcpy(listresult->info[listresult->numofstore].clientaddress, row[3]);
+			strcpy(listresult->info[listresult->numofstore].storeaddress, row[4]);
+			strcpy(listresult->info[listresult->numofstore].date, row[5]);
 		}
 		listresult->numofstore++;
 	}
@@ -199,11 +211,13 @@ void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* c
 	int num_rows = 0;
 	switch (flag) {
 	case 6:
+		mysql_query(conn, "set names euckr");
 		sprintf(query, "update ordering set riderstatus = 1, ridername = \"%s\" where riderstatus = 0 and _no = %d", ridername, acceptbuf->itemid);
 		mysql_query(conn, query);
 		num_rows = mysql_affected_rows(conn);
 		break;
 	case 7:
+		mysql_query(conn, "set names euckr");
 		sprintf(query, "update advertisement set ridername = \"%s\" where ridername is null and _no = %d", ridername, acceptbuf->itemid);
 		mysql_query(conn, query);
 		num_rows = mysql_affected_rows(conn);
