@@ -11,11 +11,14 @@ struct infotoSend {
 	char order[20];
 	char selectnum[100];
 	char logininfo[100];
-	char menu[200];
+	char menu[100];
+	char address[100];
 };
 struct infotoRecv {
 	char store[200];
 	char choosemenu[200];
+	char inputadd[100];
+	int storenumb;
 };
 // 소켓 함수 오류 출력 후 종료
 void err_quit(const char* msg)
@@ -129,7 +132,7 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			buf[retval] = '\0';
-			printf(" %s\n", buf);
+			printf("\n  %s", buf);
 
 			if (strcmp(buf, "회원가입 완료\n") == 0 || strcmp(buf, "로그인 완료 !\n") == 0) {
 				logincount = 1;
@@ -150,37 +153,53 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			printf("\n%s", buf);
-			printf("  원하는 카테고리 번호 : ");
+			printf("\n  원하는 카테고리 번호 : ");
 			scanf("%d", &answer);
+			printf("\n");
 			sprintf(sendinfo.selectnum, "%d", answer);
-
 			retval = sendto(sock, sendinfo.selectnum, sizeof(sendinfo.selectnum), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
 			if (retval == SOCKET_ERROR) {
 				printf("sendto()");
 				continue;
 			}
-			while (1) {
-				retval = recvfrom(sock, recvinfo.store, sizeof(recvinfo.store), 0,(SOCKADDR*)&peeraddr, &addrlen);
+			retval = recvfrom(sock, buf, BUFSIZE, 0, (SOCKADDR*)&peeraddr, &addrlen);
+			if (retval == SOCKET_ERROR) {
+				err_display("recvfrom()");
+				continue;
+			}
+			buf[retval] = '\0';
+			recvinfo.storenumb = atoi(buf);
+			/*상점 row가 몇개인지 체크
+			0개 있으면 오류 메세지 출력후 continue
+			1이상이면 그만큼 출력하고 아웃*/
+			if (recvinfo.storenumb == 0) {
+				retval = recvfrom(sock, recvinfo.store, sizeof(recvinfo.store), 0, (SOCKADDR*)&peeraddr, &addrlen);
 				if (retval == SOCKET_ERROR) {
 					err_display("recvfrom()");
 					continue;
 				}
 				recvinfo.store[retval] = '\0';
-				printf("%s", recvinfo.store);
-
-				if (strcmp(recvinfo.store, "카테고리 내 주문 가능한 상점이 존재하지 않습니다") == 0) {
-					ordercount = 0;
-					break;
+				printf("%s\n", recvinfo.store);
+				continue;
+			}
+			else {
+				for (int i = 0; i < recvinfo.storenumb; i++) {
+					retval = recvfrom(sock, recvinfo.store, sizeof(recvinfo.store), 0, (SOCKADDR*)&peeraddr, &addrlen);
+					if (retval == SOCKET_ERROR) {
+						err_display("recvfrom()");
+						continue;
+					}
+					recvinfo.store[retval] = '\0';
+					printf("%s", recvinfo.store);
 				}
-				else
-					ordercount++;
+				break;
 			}
 		}
 
 
 		/*3. 상점이름 전송 받고, 상점 이름과 메뉴이름 전송하기*/
 		while (1) {
-			printf("\n 상점 이름 : ");
+			printf("\n  상점 이름 : ");
 			scanf("%s", sendinfo.storename);
 			retval = sendto(sock, sendinfo.storename, sizeof(sendinfo.storename), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
 			if (retval == SOCKET_ERROR) {
@@ -194,20 +213,52 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			recvinfo.choosemenu[retval] = '\0';
-			if (strcmp(recvinfo.choosemenu, 0) == 0)
+			if (strcmp(recvinfo.choosemenu, "0") == 0) {
+				printf("입력하신 상점이 없습니다!\n");
 				continue;
-			else
+			}
+			else {
+				printf("%s", recvinfo.choosemenu);
 				break;
+			}
 		}
 		/*메뉴정보에 대한 정보 전송*/
-		scanf("%s", sendinfo.menu);
+		scanf("%s%*c", sendinfo.menu);
+
 		retval = sendto(sock, sendinfo.menu, sizeof(sendinfo.menu), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
 		if (retval == SOCKET_ERROR) {
 			printf("sendto()");
 			continue;
 		}
 
-		/*order에 대한 정보 받기*/
+		/*주소 입력받기*/
+		retval = recvfrom(sock, recvinfo.inputadd, sizeof(recvinfo.inputadd), 0, (SOCKADDR*)&peeraddr, &addrlen);
+		if (retval == SOCKET_ERROR) {
+			err_display("recvfrom()");
+			continue;
+		}
+		recvinfo.inputadd[retval] = '\0';
+		char str[100];
+		printf("%s", recvinfo.inputadd);
+		//gets_s(sendinfo.address,sizeof(sendinfo.address));
+
+		gets_s(sendinfo.address,sizeof(sendinfo.address));
+		printf("%s", sendinfo.address);
+
+		retval = sendto(sock, sendinfo.address, sizeof(sendinfo.address), 0, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
+		if (retval == SOCKET_ERROR) {
+			printf("sendto()");
+			continue;
+		}
+
+		//order에 대한 정보 받기/
+		retval = recvfrom(sock,buf, BUFSIZE, 0, (SOCKADDR*)&peeraddr, &addrlen);
+		if (retval == SOCKET_ERROR) {
+			err_display("recvfrom()");
+			continue;
+		}
+		buf[retval] = '\0';
+		printf("%s", buf);
 		break;
 
 	
