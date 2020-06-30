@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "mysql.h"
+#pragma comment(lib, "libmySQL.lib")
 
 #define BUFSIZE 1024
 #define PORT 8600
@@ -9,7 +10,7 @@
 //데이터 베이스 접근 정보
 const char* server = "localhost";
 const char* user = "root";
-const char* password = "1234";
+const char* password = "3681";
 
 /*
 type		0은 client,		1은 server
@@ -27,7 +28,7 @@ typedef struct Destination {
 typedef struct PlatformProtocol {
 	Destination start;
 	Destination end;
-	int flag; 
+	int flag;
 	char data[950];
 }PlatformProtocol;
 
@@ -48,10 +49,10 @@ void err_display(char* msg)
 }
 
 /*
-플랫폼에 존재하는 서버들의 정보. 
+플랫폼에 존재하는 서버들의 정보.
 */
 
-void setServerAddr(void );
+void setServerAddr(void);
 
 int main(void) {
 	int retval;
@@ -63,7 +64,7 @@ int main(void) {
 		fprintf(stderr, "%s\n", mysql_error(conn));
 		exit(1);
 	}
-	mysql_query(conn, "use netproject");
+	mysql_query(conn, "use sys");
 
 	// 윈속 초기화
 	WSADATA wsa;
@@ -72,7 +73,7 @@ int main(void) {
 
 	// socket()
 	SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock == INVALID_SOCKET) err_quit("socket()");
+	if (sock == INVALID_SOCKET) err_quit((char*)"socket()");
 
 	// bind()
 	SOCKADDR_IN serveraddr;
@@ -81,10 +82,10 @@ int main(void) {
 	serveraddr.sin_port = htons(PORT);
 	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	retval = bind(sock, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
-	if (retval == SOCKET_ERROR) err_quit("bind()");
+	if (retval == SOCKET_ERROR) err_quit((char*)"bind()");
 
 	SOCKET sendsock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock == INVALID_SOCKET) err_quit("socket()");
+	if (sock == INVALID_SOCKET) err_quit((char*)"socket()");
 
 	//서버의 ip port 정비 함수.
 	SOCKADDR_IN rideraddr;
@@ -109,7 +110,7 @@ int main(void) {
 		retval = recvfrom(sock, buf, BUFSIZE, 0,
 			(SOCKADDR*)&clientaddr, &addrlen);
 		if (retval == SOCKET_ERROR) {
-			err_display("recvfrom()");
+			err_display((char*)"recvfrom()");
 			continue;
 		}
 
@@ -146,10 +147,10 @@ int main(void) {
 			if (wrongflag) {
 				printf("아직 새로운 서버는 확장되지 않은 상태입니다.\n");
 				platformbuf->flag = -1;
-				retval = sendto(sock, platformbuf, sizeof(PlatformProtocol), 0,
+				retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 					(SOCKADDR*)&clientaddr, sizeof(SOCKADDR_IN));
 				if (retval == SOCKET_ERROR) {
-					err_display("sendto()");
+					err_display((char*)"sendto()");
 					continue;
 				}
 				continue;
@@ -158,7 +159,7 @@ int main(void) {
 			retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 				(SOCKADDR*)&destination, sizeof(SOCKADDR_IN));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 		}
@@ -181,7 +182,7 @@ int main(void) {
 				memset(DataFrom, 0x00, sizeof(700));
 				int j = 0;
 				while (row = mysql_fetch_row(res)) {
-					for (int i = 0; i < mysql_field_count(res); i++) {
+					for (int i = 0; i < mysql_field_count((MYSQL*)res); i++) {
 						strcpy(DataFrom[j][i], row[i]);
 					}
 				}
@@ -189,7 +190,7 @@ int main(void) {
 				retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 					(SOCKADDR*)&clientaddr, sizeof(SOCKADDR_IN));
 				if (retval == SOCKET_ERROR) {
-					err_display("sendto()");
+					err_display((char*)"sendto()");
 					continue;
 				}
 			}
@@ -216,7 +217,7 @@ int main(void) {
 					retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 						(SOCKADDR*)&clientaddr, sizeof(SOCKADDR_IN));
 					if (retval == SOCKET_ERROR) {
-						err_display("sendto()");
+						err_display((char*)"sendto()");
 						continue;
 					}
 					continue;
@@ -225,7 +226,7 @@ int main(void) {
 				retval = sendto(sendsock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 					(SOCKADDR*)&destination, sizeof(SOCKADDR_IN));
 				if (retval == SOCKET_ERROR) {
-					err_display("sendto()");
+					err_display((char*)"sendto()");
 					continue;
 				}
 			}
@@ -236,10 +237,9 @@ int main(void) {
 			retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 		}
 	}
 }
-

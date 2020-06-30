@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "mysql.h"
+#pragma comment(lib, "libmySQL.lib")
 
 #define BUFSIZE 1024
 #define PORT 8400
@@ -9,8 +10,7 @@
 //데이터 베이스 접근 정보
 const char* server = "localhost";
 const char* user = "root";
-const char* password = "1234";
-const char* database = "netproject";
+const char* password = "3681";
 
 /* 제너럴 구조체
 * 이 구조체의 flag 값은 서버가 어떤 루틴을 처리해야 하는지 알 수 있다.
@@ -165,6 +165,7 @@ void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, 
 	}
 	else {
 		char query[200];
+		
 		sprintf(query, "insert into rider(id, password, ridername) values (\'%s\', \'%s\', \'%s\');",
 			registerbuf->id, registerbuf->password, registerbuf->name);
 
@@ -185,7 +186,7 @@ void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, 
 	registerresult->end.addr = registerbuf->start.addr;
 }
 
-void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
+void listprocess(ListProtocol* listbuf, ListProtocol* listresult, MYSQL* conn) {
 	int flag = listbuf->flag;
 	char name[50];
 	char query[500];
@@ -206,7 +207,11 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 		break;
 	case 5:
 		mysql_query(conn, "set names euckr");
-		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 1 and storestatus = 2 and ridername = (select ridername from rider where _no = %d) limit 6", listbuf->userid);
+		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 1 and storestatus = 1 and ridername = (select ridername from rider where _no = %d) limit 6", listbuf->userid);
+		if (mysql_query(conn, query) != 0)
+		{
+			err_display((char*)"error when selecting the ordering info");
+		}
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
@@ -233,7 +238,7 @@ void listprocess(ListProtocol* listbuf ,ListProtocol* listresult, MYSQL* conn) {
 }
 
 void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* conn) {
-	int flag = acceptbuf ->flag;
+	int flag = acceptbuf->flag;
 	char query[200];
 	MYSQL_RES* res = NULL;
 	MYSQL_ROW row;
@@ -261,13 +266,13 @@ void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* c
 		num_rows = mysql_affected_rows(conn);
 		break;
 	case 8:
-		sprintf(query, "update ordering set riderstatus = 2 where riderstatus = 1 and storestatus = 2 and _no = %d", acceptbuf->itemid);
+
+		sprintf(query, "update ordering set riderstatus = 2, storestatus = 2 where riderstatus = 1 and storestatus = 1 and _no = %d", acceptbuf->itemid);
 		mysql_query(conn, query);
 		num_rows = mysql_affected_rows(conn);
 		break;
 	}
 	response->result = num_rows;
-
 	response->start.type = 1;
 	response->end.type = 0;
 	response->start.number = 2;
@@ -285,7 +290,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "%s\n", mysql_error(conn));
 		exit(1);
 	}
-	mysql_query(conn, "use netproject");
+	mysql_query(conn, "use sys");
 	// 윈속 초기화
 	WSADATA wsa;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
@@ -293,7 +298,7 @@ int main(int argc, char* argv[])
 
 	// socket()
 	SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock == INVALID_SOCKET) err_quit("socket()");
+	if (sock == INVALID_SOCKET) err_quit((char*)"socket()");
 
 	// bind()
 	SOCKADDR_IN serveraddr;
@@ -302,7 +307,7 @@ int main(int argc, char* argv[])
 	serveraddr.sin_port = htons(PORT);
 	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	retval = bind(sock, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
-	if (retval == SOCKET_ERROR) err_quit("bind()");
+	if (retval == SOCKET_ERROR) err_quit((char*)"bind()");
 
 	// 데이터 통신에 사용할 변수
 	SOCKADDR_IN clientaddr;
@@ -316,59 +321,62 @@ int main(int argc, char* argv[])
 		retval = recvfrom(sock, buf, BUFSIZE, 0,
 			(SOCKADDR*)&clientaddr, &addrlen);
 		if (retval == SOCKET_ERROR) {
-			err_display("recvfrom()");
+			err_display((char*)"recvfrom()");
 			continue;
 		}
 
 		FlagProtocol* myflag = (FlagProtocol*)buf;
 		char* response = NULL;
+		AdminProtocol* adminresponse;
+		ListProtocol* listresponse;
+		AcceptProtocol* acceptprotocol;
 
 		switch (myflag->flag) {
 		case 1:
-			response = (AdminProtocol*)malloc(sizeof(AdminProtocol));
-			loginprocess((AdminProtocol*)buf, (AdminProtocol*)response, conn);
+			adminresponse = (AdminProtocol*)malloc(sizeof(AdminProtocol));
+			loginprocess((AdminProtocol*)buf, (AdminProtocol*)adminresponse, conn);
 			// 결과를 보낸다.
-			retval = sendto(sock, response, sizeof(AdminProtocol), 0,
+			retval = sendto(sock, (char*)adminresponse, sizeof(AdminProtocol), 0,
 				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 
 			break;
 		case 2:
-			response = (AdminProtocol*)malloc(sizeof(AdminProtocol));
-			registerprocess((AdminProtocol*)buf, (AdminProtocol*)response, conn);
+			adminresponse = (AdminProtocol*)malloc(sizeof(AdminProtocol));
+			registerprocess((AdminProtocol*)buf, (AdminProtocol*)adminresponse, conn);
 			// 결과를 보낸다.
-			retval = sendto(sock, response, sizeof(AdminProtocol), 0,
+			retval = sendto(sock, (char*)adminresponse, sizeof(AdminProtocol), 0,
 				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 			break;
 		case 3: case 4: case 5:
-			response = (ListProtocol*)malloc(sizeof(ListProtocol));
-			listprocess((ListProtocol*)buf, (ListProtocol*)response, conn);
+			listresponse = (ListProtocol*)malloc(sizeof(ListProtocol));
+			listprocess((ListProtocol*)buf, (ListProtocol*)listresponse, conn);
 			// 결과를 보낸다.
-			retval = sendto(sock, response, sizeof(ListProtocol), 0,
+			retval = sendto(sock, (char*)listresponse, sizeof(ListProtocol), 0,
 				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 			break;
 		case 6: case 7: case 8:
-			response = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
-			acceptprocess((AcceptProtocol*)buf, (AcceptProtocol*)response, conn); 
-			retval = sendto(sock, response, sizeof(ListProtocol), 0,
+			acceptprotocol = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
+			acceptprocess((AcceptProtocol*)buf, (AcceptProtocol*)acceptprotocol, conn);
+			retval = sendto(sock, (char*)acceptprotocol, sizeof(ListProtocol), 0,
 				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 			break;
-		default: 
+		default:
 			printf("wrong flag error\n");
 			break;
 		}

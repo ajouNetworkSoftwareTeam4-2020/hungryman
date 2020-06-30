@@ -19,7 +19,7 @@ typedef struct Destination {
 	SOCKADDR_IN addr;
 }Destination;
 
-/* 제너럴 구조체 
+/* 제너럴 구조체
 * 이 구조체의 flag 값은 서버가 어떤 루틴을 처리해야 하는지 알 수 있다.
 * flag = 1; 로그인
 * flag = 2; 회원 가입
@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
 
 	// socket()
 	SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock == INVALID_SOCKET) err_quit("socket()");
+	if (sock == INVALID_SOCKET) err_quit((char*)"socket()");
 
 	// 소켓 주소 구조체 초기화
 	SOCKADDR_IN serveraddr;
@@ -118,9 +118,12 @@ int main(int argc, char* argv[])
 	char buf[BUFSIZE + 1];
 	int len;
 
-	printf("	*************************************\n");
-	printf("	*   Rider Client !!		    *\n");
-	printf("	*************************************\n\n");
+	printf("\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n");
+	printf("┃                                ┃\n");
+	printf("┃      최고의 배달 플랫폼        ┃\n");
+	printf("┃     [ H U N G R Y M E N ]      ┃\n");
+	printf("┃                                ┃\n");
+	printf("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n");
 
 	// 서버와 데이터 통신
 	while (1) {
@@ -146,7 +149,7 @@ int main(int argc, char* argv[])
 		scanf("%s", request->password);
 		request->password[strlen(request->password)] = '\0';
 
-		if(direction == 1) {
+		if (direction == 1) {
 			request->flag = 1;
 		}
 		else {
@@ -161,7 +164,7 @@ int main(int argc, char* argv[])
 		retval = sendto(sock, (char*)request, sizeof(AdminProtocol), 0,
 			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 		if (retval == SOCKET_ERROR) {
-			err_display("sendto()");
+			err_display((char*)"sendto()");
 			continue;
 		}
 		free(request);
@@ -172,11 +175,11 @@ int main(int argc, char* argv[])
 		retval = recvfrom(sock, buf, BUFSIZE, 0,
 			(SOCKADDR*)&peeraddr, &addrlen);
 		if (retval == SOCKET_ERROR) {
-			err_display("recvfrom()");
+			err_display((char*)"recvfrom()");
 			continue;
 		}
 		response = (AdminProtocol*)buf;
-		
+
 		if (response->result == 0) {
 			printf("%s\n", response->name);
 			continue;
@@ -221,7 +224,7 @@ int main(int argc, char* argv[])
 			retval = sendto(sock, (char*)request, sizeof(ListProtocol), 0,
 				(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 			free(request);
@@ -231,7 +234,7 @@ int main(int argc, char* argv[])
 			retval = sendto(sock, (char*)request, sizeof(ListProtocol), 0,
 				(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 			free(request);
@@ -242,7 +245,7 @@ int main(int argc, char* argv[])
 			retval = sendto(sock, (char*)request, sizeof(ListProtocol), 0,
 				(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 			if (retval == SOCKET_ERROR) {
-				err_display("sendto()");
+				err_display((char*)"sendto()");
 				continue;
 			}
 			free(request);
@@ -256,17 +259,17 @@ int main(int argc, char* argv[])
 		retval = recvfrom(sock, buf, BUFSIZE, 0,
 			(SOCKADDR*)&peeraddr, &addrlen);
 
-		ListProtocol* returnlist = buf;
+		ListProtocol* returnlist = (ListProtocol*)buf;
 
 		printf("\n------- 선택 리스트 ---------------------------------\n");
 		for (int i = 0; i < returnlist->numofstore; i++) {
 			if (whatdo == 2) {
-				printf("  %d =>  가게 이름 : %s \n", 
-					i+1 , returnlist->info[i].storename);
+				printf("  %d =>  가게 이름 : %s \n",
+					i + 1, returnlist->info[i].storename);
 			}
 			else {
 				printf("  %d => 가게 이름 : %s    ",
-					i+1, returnlist->info[i].storename);
+					i + 1, returnlist->info[i].storename);
 				printf("  %d => 손님 주소 : %s    ",
 					i + 1, returnlist->info[i].clientaddress);
 				printf("  %d => 가게 주소 : %s     ",
@@ -291,7 +294,7 @@ int main(int argc, char* argv[])
 		if ((choicelist < 1) && (choicelist > returnlist->numofstore)) {
 			printf("존재하지 않은 리스트입니다. 처음으로 돌아갑니다.\n");
 		}
-		
+
 		AcceptProtocol* senddata = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
 		senddata->userid = identity;
 		senddata->start.type = 0;
@@ -313,11 +316,12 @@ int main(int argc, char* argv[])
 		default:
 			break;
 		}
-		
+
+		//ordering list 업로드 하는 부분 --> 김수영 추가 교현님 수정 부탁
 		retval = sendto(sock, (char*)senddata, sizeof(AcceptProtocol), 0,
 			(SOCKADDR*)&serveraddr, sizeof(serveraddr));
 		if (retval == SOCKET_ERROR) {
-			err_display("sendto()");
+			err_display((char*)"sendto()");
 			continue;
 		}
 		free(senddata);
@@ -325,8 +329,8 @@ int main(int argc, char* argv[])
 		addrlen = sizeof(peeraddr);
 		retval = recvfrom(sock, buf, BUFSIZE, 0,
 			(SOCKADDR*)&peeraddr, &addrlen);
-		
-		AcceptProtocol* returnaccept = buf;
+
+		AcceptProtocol* returnaccept = (AcceptProtocol*)buf;
 		if (returnaccept->result == 1) {
 			printf("정상적으로 처리되었습니다.\n");
 			continue;

@@ -13,8 +13,7 @@
 
 const char* server = "localhost";
 const char* user = "root";
-const char* password = "1234";
-const char* database = "netproject";
+const char* password = "3681";
 
 void err_quit(char* msg)
 {
@@ -57,7 +56,6 @@ typedef struct Destination {
 * flag = 3; 주문 정보 요청
 * flag = 4: 광고 등록 요청
 * flag = 5: 주분 정보 변경 요청
-
 */
 
 typedef struct flagprotocol
@@ -185,12 +183,12 @@ void getStoreInfo(MYSQL* conn, OrderingInfoList* InfoList, OrderingInfoList* com
         memset(commandResponse->Info[0].storename, 0, sizeof(commandResponse->Info[0].storename));
         strncpy(commandResponse->Info[0].storename, row[3], strlen(row[3]));
     }
-   // row = mysql_fetch_row(res);
-    
-   // strncpy(commandResponse->Info[0].storename, row[3], strlen(row[3]));
+    // row = mysql_fetch_row(res);
+
+    // strncpy(commandResponse->Info[0].storename, row[3], strlen(row[3]));
 
     mysql_free_result(res);
-    
+
 }
 
 void getWholeOrderingInfo(MYSQL* conn, OrderingInfoList* InfoList, OrderingInfoList* commandResponse)
@@ -223,19 +221,19 @@ void getWholeOrderingInfo(MYSQL* conn, OrderingInfoList* InfoList, OrderingInfoL
         memset(commandResponse->Info[rowindex].timestamp, 0, sizeof(commandResponse->Info[0].timestamp));
 
 
-            strncpy(commandResponse->Info[rowindex].address, row[7],strlen(row[7]));
-            strncpy(commandResponse->Info[rowindex].foodname, row[2], strlen(row[2]));
-            if (row[3] != NULL)
-            {
-                strncpy(commandResponse->Info[rowindex].ridername, row[3], strlen(row[3]));
-            }
-       
-            if (atoi(row[4]) == 0) strncpy(commandResponse->Info[rowindex].status, "조리 대기", 10);
-            else if ((atoi)(row[4]) == 1) strncpy(commandResponse->Info[rowindex].status, "조리 완료", 10);
-            else if (atoi(row[4]) == 2) strncpy(commandResponse->Info[rowindex].status, "픽업 완료", 10);
-            strncpy(commandResponse->Info[rowindex].storename, commandResponse->Info[0].storename, strlen(commandResponse->Info[0].storename));
-            strncpy(commandResponse->Info[rowindex].timestamp, row[6], strlen(row[6]));
-            rowindex++;
+        strncpy(commandResponse->Info[rowindex].address, row[7], strlen(row[7]));
+        strncpy(commandResponse->Info[rowindex].foodname, row[2], strlen(row[2]));
+        if (row[3] != NULL)
+        {
+            strncpy(commandResponse->Info[rowindex].ridername, row[3], strlen(row[3]));
+        }
+
+        if (atoi(row[4]) == 0) strncpy(commandResponse->Info[rowindex].status, "조리 대기", 10);
+        else if ((atoi)(row[4]) == 1) strncpy(commandResponse->Info[rowindex].status, "조리 완료", 10);
+        else if (atoi(row[4]) == 2) strncpy(commandResponse->Info[rowindex].status, "픽업 완료", 10);
+        strncpy(commandResponse->Info[rowindex].storename, commandResponse->Info[0].storename, strlen(commandResponse->Info[0].storename));
+        strncpy(commandResponse->Info[rowindex].timestamp, row[6], strlen(row[6]));
+        rowindex++;
     }
     commandResponse->whole_row = rowindex;
 
@@ -262,7 +260,7 @@ void changeOrderingStatus(MYSQL* conn, AcceptProtocol* changeInfo, AcceptProtoco
     res = mysql_store_result(conn);
     row = mysql_fetch_row(res);
 
-  
+
     sprintf(query, "select * from ordering where storename = \"%s\"", row[0]);
     mysql_free_result(res);
 
@@ -272,14 +270,14 @@ void changeOrderingStatus(MYSQL* conn, AcceptProtocol* changeInfo, AcceptProtoco
     {
         err_display((char*)"error when selecting");
     }
-    
+
     res = mysql_store_result(conn);
     int rowindex = 0;
     while (row = mysql_fetch_row(res))
     {
         if (changeInfo->itemid == rowindex)
         {
-           
+
             sprintf(query, "update ordering set storestatus = 1 where _no = %d", atoi(row[0]));
             mysql_query(conn, "set names euckr");
 
@@ -304,7 +302,7 @@ void changeOrderingStatus(MYSQL* conn, AcceptProtocol* changeInfo, AcceptProtoco
 void insertAdvertisementInfo(MYSQL* conn, AdvertisementProtocol* advertisementInfo, AdvertisementProtocol* advertisement_command_response)
 {
     memset(advertisement_command_response, NULL, sizeof(advertisement_command_response));
-    
+
     MYSQL_RES* res;
     MYSQL_ROW row;
     char query[200];
@@ -323,7 +321,7 @@ void insertAdvertisementInfo(MYSQL* conn, AdvertisementProtocol* advertisementIn
     mysql_free_result(res);
     sprintf(query, "insert into advertisement(storename) values (\'%s\')", row[0]);
 
-  
+
     mysql_query(conn, "set names euckr");
     if (mysql_query(conn, query) != 0)
     {
@@ -386,7 +384,7 @@ void registerprocess(AdminProtocol* loginbuf, AdminProtocol* response, MYSQL* co
 
 int main(void) {
 
-  
+
     int retval;
     HANDLE			hThread;
     DWORD			ThreadId;
@@ -398,7 +396,7 @@ int main(void) {
         fprintf(stderr, "%s\n", mysql_error(conn));
         exit(1);
     }
-    mysql_query(conn, "use netproject");
+    mysql_query(conn, "use sys");
 
 
     WSADATA wsa;
@@ -421,10 +419,10 @@ int main(void) {
     //데이터에 필요한 정보들
     SOCKADDR_IN clientaddr;
     int addrlen;
-	char buf[BUFSIZE + 1];
-	int len;
-	int inputNum = 0;
-	char buffer[BUFFERSIZE + 1];
+    char buf[BUFSIZE + 1];
+    int len;
+    int inputNum = 0;
+    char buffer[BUFFERSIZE + 1];
     int wholeLoginProcess = 1;
 
     while (1)
@@ -452,7 +450,7 @@ int main(void) {
             retval = sendto(sock, (char*)response, sizeof(AdminProtocol), 0,
                 (SOCKADDR*)&clientaddr, sizeof(clientaddr));
 
-            if (retval == SOCKET_ERROR) 
+            if (retval == SOCKET_ERROR)
             {
                 err_display((char*)"sendto()");
                 continue;
@@ -475,7 +473,7 @@ int main(void) {
             }
 
             break;
-            
+
         case 3:
 
             command_response = (OrderingInfoList*)malloc(sizeof(OrderingInfoList));
@@ -491,7 +489,7 @@ int main(void) {
                 err_display((char*)"sendto()");
                 continue;
             }
-            
+
             break;
 
         case 4:
@@ -537,20 +535,6 @@ int main(void) {
     //     CloseHandle(hThread);
 
 
-
-
-
-    /*mysql_query(conn, "use netproject");
-
-    mysql_query(conn, "select * from store");
-
-    res = mysql_store_result(conn);
-
-    while (row = mysql_fetch_row(res)) {
-        for (int i = 0; i < mysql_num_fields(res); i++) {
-            printf("%s ", row[i]);
-        }
-    }*/
 
 
 }

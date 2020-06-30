@@ -49,10 +49,9 @@ typedef struct Destination {
 * flag = 3; 주문 정보 요청
 * flag = 4: 광고 등록 요청
 * flag = 5: 주분 정보 변경 요청
-
 */
 
-typedef struct flagprotocol 
+typedef struct flagprotocol
 {
 	Destination start;
 	Destination end;
@@ -69,7 +68,7 @@ typedef struct advertisementprotocol
 	int result;
 }AdvertisementProtocol;
 
-typedef struct adminprotocol 
+typedef struct adminprotocol
 {
 	Destination start;
 	Destination end;
@@ -120,19 +119,18 @@ void displayWholeOrderingList(OrderingInfoList* list)
 	for (int i = 0; i < list->whole_row; i++)
 	{
 		printf("-----------------------------------------\n");
-		printf("오더 list %d\n", i+1);
+		printf("주문 list %d\n", i + 1);
 		printf("%s\n", list->Info[i].timestamp);
-		printf("%s\n", list->Info[i].foodname);
-		printf("%s\n", list->Info[i].address); //customer address
+		printf("메뉴 : %s\n", list->Info[i].foodname);
+		printf("손님 주소 : %s\n", list->Info[i].address); //customer address
 		if (strlen(list->Info[i].ridername) != 0)
 		{
-			printf("%s\n", list->Info[i].ridername);
+			printf("라이더 이름 : %s\n", list->Info[i].ridername);
 
 		}
 		printf("%s\n", list->Info[i].status);
-		printf("-----------------------------------------\n");
+		printf("-----------------------------------------\n\n");
 	}
-
 
 }
 
@@ -140,11 +138,11 @@ void printUpdateCheckMessage(AcceptProtocol* message)
 {
 	if (message->result == 1)
 	{
-		printf("\n업데이트 완료!!!\n");
+		printf("\n업데이트 완료!!!\n\n");
 	}
 	else
 	{
-		printf("\n업데이트 실패!!\n");
+		printf("\n업데이트 실패!!\n\n");
 	}
 }
 
@@ -152,11 +150,11 @@ void printInsertCheckMessage(AdvertisementProtocol* message)
 {
 	if (message->result == 1)
 	{
-		printf("\n광고 등록 완료!!!\n");
+		printf("\n광고 등록 완료!!!\n\n");
 	}
 	else
 	{
-		printf("\n광고 등록 실패!!\n");
+		printf("\n광고 등록 실패!!\n\n");
 	}
 }
 
@@ -188,16 +186,23 @@ int main() {
 	int result_store_index = 0;
 	//char* storename = { 0, };
 
-	printf("\n\nHI WE ARE HUNGRYMAN\n\n");
-
 	// 서버와 데이터 통신
 	while (1) {
-		
+
+		printf("\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n");
+		printf("┃                                ┃\n");
+		printf("┃      최고의 배달 플랫폼        ┃\n");
+		printf("┃     [ H U N G R Y M E N ]      ┃\n");
+		printf("┃                                ┃\n");
+		printf("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n");
+
+
+
 		char buf[BUFSIZE + 1];
 		int loginOrRegister;
 		int retval;
-	/*	clientInfo ClientInfo;
-		storeInfo StoreInfo;*/
+		/*	clientInfo ClientInfo;
+			storeInfo StoreInfo;*/
 
 		int checkloginstate = 0;
 
@@ -308,11 +313,12 @@ int main() {
 				}
 			}
 		}
-
-		printf("\n\nWELCOME TO HUNGRYMAN\n\n");
+		printf(" \n\n **********************************\n");
+		printf("\n\nWELCOME TO HUNGRYMAN\n");
+		printf(" \n\n **********************************\n");
 
 		int workstatus = 0;
-		while (workstatus ==0)
+		while (workstatus == 0)
 		{
 			int command = 0;
 			printf("  **********************************\n");
@@ -440,7 +446,7 @@ int main() {
 			}
 		}
 
-		
+
 	}
 
 	// closesocket()
