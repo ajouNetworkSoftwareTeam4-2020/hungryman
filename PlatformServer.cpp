@@ -7,14 +7,14 @@
 #define BUFSIZE 1024
 #define PORT 8600
 
-//µ¥ÀÌÅÍ º£ÀÌ½º Á¢±Ù Á¤º¸
+//ë°ì´í„° ë² ì´ìŠ¤ ì ‘ê·¼ ì •ë³´
 const char* server = "localhost";
 const char* user = "root";
 const char* password = "3681";
 
 /*
-type		0Àº client,		1Àº server
-number		0Àº customer,  1Àº store,	2´Â rider,   3Àº ¿ÜºÎ
+type		0ì€ client,		1ì€ server
+number		0ì€ customer,  1ì€ store,	2ëŠ” rider,   3ì€ ì™¸ë¶€
 */
 typedef struct Destination {
 	int type;
@@ -23,7 +23,7 @@ typedef struct Destination {
 }Destination;
 
 /*
-¶ó¿ìÆÃÀÇ ±âº»ÀÎ ¹æÇâ ±¸Á¶Ã¼´Ù.
+ë¼ìš°íŒ…ì˜ ê¸°ë³¸ì¸ ë°©í–¥ êµ¬ì¡°ì²´ë‹¤.
 */
 typedef struct PlatformProtocol {
 	Destination start;
@@ -33,7 +33,7 @@ typedef struct PlatformProtocol {
 }PlatformProtocol;
 
 /*
-µ¥ÀÌÅÍº£ÀÌ½º Ãâ·Â Çü½ÄÀÔ´Ï´Ù.
+ë°ì´í„°ë² ì´ìŠ¤ ì¶œë ¥ í˜•ì‹ìž…ë‹ˆë‹¤.
 */
 
 char DataFrom[7][5][20];
@@ -49,7 +49,7 @@ void err_display(char* msg)
 }
 
 /*
-ÇÃ·§Æû¿¡ Á¸ÀçÇÏ´Â ¼­¹öµéÀÇ Á¤º¸.
+í”Œëž«í¼ì— ì¡´ìž¬í•˜ëŠ” ì„œë²„ë“¤ì˜ ì •ë³´.
 */
 
 void setServerAddr(void);
@@ -66,7 +66,7 @@ int main(void) {
 	}
 	mysql_query(conn, "use sys");
 
-	// À©¼Ó ÃÊ±âÈ­
+	// ìœˆì† ì´ˆê¸°í™”
 	WSADATA wsa;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
 		return -1;
@@ -87,7 +87,7 @@ int main(void) {
 	SOCKET sendsock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == INVALID_SOCKET) err_quit((char*)"socket()");
 
-	//¼­¹öÀÇ ip port Á¤ºñ ÇÔ¼ö.
+	//ì„œë²„ì˜ ip port ì •ë¹„ í•¨ìˆ˜.
 	SOCKADDR_IN rideraddr;
 	ZeroMemory(&rideraddr, sizeof(rideraddr));
 	rideraddr.sin_family = AF_INET;
@@ -100,7 +100,7 @@ int main(void) {
 	storeaddr.sin_port = htons(8700);
 	storeaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-	// µ¥ÀÌÅÍ Åë½Å¿¡ »ç¿ëÇÒ º¯¼ö
+	// ë°ì´í„° í†µì‹ ì— ì‚¬ìš©í•  ë³€ìˆ˜
 	SOCKADDR_IN clientaddr;
 	int addrlen;
 	char buf[BUFSIZE + 1];
@@ -117,11 +117,11 @@ int main(void) {
 		PlatformProtocol* platformbuf = (PlatformProtocol*)buf;
 		platformbuf->start.addr = clientaddr;
 
-		//¼­¹ö Å¬¶óÀÌ¾ðÆ® °£ Åë½Å.
+		//ì„œë²„ í´ë¼ì´ì–¸íŠ¸ ê°„ í†µì‹ .
 		if ((platformbuf->end.type + platformbuf->start.type) == 1) {
 			SOCKADDR_IN destination;
 			int wrongflag = 0;
-			//¹ß½ÅÀÎÀÌ Å¬¶óÀÌ¾ðÆ®¶ó¸é
+			//ë°œì‹ ì¸ì´ í´ë¼ì´ì–¸íŠ¸ë¼ë©´
 			if (platformbuf->start.type == 0) {
 				switch (platformbuf->end.number) {
 				case 0:
@@ -134,18 +134,18 @@ int main(void) {
 					destination = rideraddr;
 					break;
 				default:
-					printf("ÀÌ¿Ü ¼­¹ö´Â ¾ÆÁ÷ ¾ø½À´Ï´Ù.");
+					printf("ì´ì™¸ ì„œë²„ëŠ” ì•„ì§ ì—†ìŠµë‹ˆë‹¤.");
 					wrongflag = 1;
 					break;
 				}
 			}
-			//¹ß½ÅÀÎÀÌ ¼­¹ö¶ó¸é
+			//ë°œì‹ ì¸ì´ ì„œë²„ë¼ë©´
 			else {
 				destination = platformbuf->end.addr;
 			}
 
 			if (wrongflag) {
-				printf("¾ÆÁ÷ »õ·Î¿î ¼­¹ö´Â È®ÀåµÇÁö ¾ÊÀº »óÅÂÀÔ´Ï´Ù.\n");
+				printf("ì•„ì§ ìƒˆë¡œìš´ ì„œë²„ëŠ” í™•ìž¥ë˜ì§€ ì•Šì€ ìƒíƒœìž…ë‹ˆë‹¤.\n");
 				platformbuf->flag = -1;
 				retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 					(SOCKADDR*)&clientaddr, sizeof(SOCKADDR_IN));
@@ -163,18 +163,18 @@ int main(void) {
 				continue;
 			}
 		}
-		//¼­¹ö¼­ ¼­¹ö·Î (¼­¹ö°£ ¼­ºñ½º È°¿ë) (ÀÚ±âÀÚ½Å ½Ã ÇÃ·§ÆûÀÇ µðºñ Á¢±Ù È°¿ë)
+		//ì„œë²„ì„œ ì„œë²„ë¡œ (ì„œë²„ê°„ ì„œë¹„ìŠ¤ í™œìš©) (ìžê¸°ìžì‹  ì‹œ í”Œëž«í¼ì˜ ë””ë¹„ ì ‘ê·¼ í™œìš©)
 		else if (platformbuf->end.type == 1 && platformbuf->start.type == 1) {
 			SOCKADDR_IN destination;
 			int wrongflag = 0;
-			//ÀÚ±âÀÚ½ÅÀÇ ·çÇÁÀÎ °æ¿ì ÇÃ·§ÆûÀÇ µ¥ÀÌÅÍº£ÀÌ½º Á¢±ÙÀ» ¿ä±¸ÇÕ´Ï´Ù.
-			if (platformbuf->end.number == platformbuf->end.number) {
+			//ìžê¸°ìžì‹ ì˜ ë£¨í”„ì¸ ê²½ìš° í”Œëž«í¼ì˜ ë°ì´í„°ë² ì´ìŠ¤ ì ‘ê·¼ì„ ìš”êµ¬í•©ë‹ˆë‹¤.
+			if (platformbuf->start.number == platformbuf->end.number) {
 				MYSQL_RES* res;
 				MYSQL_ROW row;
 
 				if (mysql_query(conn, platformbuf->data) != 0) {
 					{
-						printf("¿À·ù´Ù.");
+						printf("ì˜¤ë¥˜ë‹¤.");
 					}
 				}
 
@@ -194,7 +194,7 @@ int main(void) {
 					continue;
 				}
 			}
-			//ÇÃ·§Æû ³»ÀÇ ¼­¹ö°£ Åë½ÅÀ» Áö¿øÇÕ´Ï´Ù.
+			//í”Œëž«í¼ ë‚´ì˜ ì„œë²„ê°„ í†µì‹ ì„ ì§€ì›í•©ë‹ˆë‹¤.
 			else {
 				switch (platformbuf->end.number) {
 				case 0:
@@ -207,12 +207,12 @@ int main(void) {
 					destination = rideraddr;
 					break;
 				default:
-					printf("ÇÃ·§ÆûÀÌ Áö¿øÇÏÁö ¾Ê´Â ¼­¹öÀÔ´Ï´Ù.");
+					printf("í”Œëž«í¼ì´ ì§€ì›í•˜ì§€ ì•ŠëŠ” ì„œë²„ìž…ë‹ˆë‹¤.");
 					wrongflag = 1;
 					break;
 				}
 				if (wrongflag) {
-					printf("¾ÆÁ÷ »õ·Î¿î ¼­¹ö´Â È®ÀåµÇÁö ¾ÊÀº »óÅÂÀÔ´Ï´Ù.\n");
+					printf("ì•„ì§ ìƒˆë¡œìš´ ì„œë²„ëŠ” í™•ìž¥ë˜ì§€ ì•Šì€ ìƒíƒœìž…ë‹ˆë‹¤.\n");
 					platformbuf->flag = -1;
 					retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 						(SOCKADDR*)&clientaddr, sizeof(SOCKADDR_IN));
@@ -232,7 +232,7 @@ int main(void) {
 			}
 		}
 		else {
-			printf("¾ÆÁ÷Àº Å¬¶óÀÌ¾ðÆ® °£ Åë½ÅÀÌ Çã¿ëµÇÁö ¾Ê½À´Ï´Ù. \n");
+			printf("ì•„ì§ì€ í´ë¼ì´ì–¸íŠ¸ ê°„ í†µì‹ ì´ í—ˆìš©ë˜ì§€ ì•ŠìŠµë‹ˆë‹¤. \n");
 			platformbuf->flag = -1;
 			retval = sendto(sock, (char*)platformbuf, sizeof(PlatformProtocol), 0,
 				(SOCKADDR*)&clientaddr, sizeof(clientaddr));
