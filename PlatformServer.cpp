@@ -121,7 +121,10 @@ int main(void) {
 		if ((platformbuf->end.type + platformbuf->start.type) == 1) {
 			SOCKADDR_IN destination;
 			int wrongflag = 0;
-			//발신인이 클라이언트라면
+			/*
+			발신인이 클라이언트라면
+			목적지는 서버이고 해당 서버에 가기 위해 플랫폼 서버에 등록된 sockaddr_in 값들을 불러온다.
+			*/
 			if (platformbuf->start.type == 0) {
 				switch (platformbuf->end.number) {
 				case 0:
@@ -139,11 +142,18 @@ int main(void) {
 					break;
 				}
 			}
-			//발신인이 서버라면
+			/*
+			발신인이 서버라면
+			이미 platformbuf에는 목적지의 sockaddr_in이 저장되어 있다. 이를 destincation으로 받아오자.
+			*/
 			else {
 				destination = platformbuf->end.addr;
 			}
-
+			
+			/*
+			만약 아직 플랫폼 서버에서 sockaddr_in 값이 없는 서버라면 
+			wrongflag가 1이 된다.
+			*/
 			if (wrongflag) {
 				printf("아직 새로운 서버는 확장되지 않은 상태입니다.\n");
 				platformbuf->flag = -1;
@@ -231,6 +241,10 @@ int main(void) {
 				}
 			}
 		}
+		/*
+		클라이언트 간 통신은 private IP 때문에 까다롭다. 
+		그래서 일단은 지원하지 않았다.
+		*/
 		else {
 			printf("아직은 클라이언트 간 통신이 허용되지 않습니다. \n");
 			platformbuf->flag = -1;

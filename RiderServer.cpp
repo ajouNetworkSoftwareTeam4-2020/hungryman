@@ -98,6 +98,11 @@ void err_display(char* msg)
 	printf("%s\n", msg);
 }
 
+/*
+* 로그인 하는 함수.
+* 데이터 베이스에 접근하여 select 문으로 _no 값을 얻는다.
+* AdminProtocol의 result에 _no 값을 담거나 없으면 0를 담는다.
+*/
 void loginprocess(AdminProtocol* loginbuf, AdminProtocol* response, MYSQL* conn) {
 	MYSQL_RES* res;
 	MYSQL_ROW row;
@@ -136,6 +141,11 @@ void loginprocess(AdminProtocol* loginbuf, AdminProtocol* response, MYSQL* conn)
 	response->end.addr = loginbuf->start.addr;
 }
 
+/*
+* 회원 가입 하는 함수 
+* 로그인하고 다른 점은 select 문을 통해 결과가 없을 시에 
+* insert 문을 실행시킨다는 점이다.
+*/
 void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, MYSQL* conn) {
 	MYSQL_RES* res;
 	MYSQL_ROW row;
@@ -186,6 +196,10 @@ void registerprocess(AdminProtocol* registerbuf, AdminProtocol* registerresult, 
 	registerresult->end.addr = registerbuf->start.addr;
 }
 
+/*
+* 클라이언트의 요청에 따라 리스트를 불러오는 함수
+* ListProtocol의 규격에 따라 StoreInfo에 select 문의 결과가 쌓인다.
+*/
 void listprocess(ListProtocol* listbuf, ListProtocol* listresult, MYSQL* conn) {
 	int flag = listbuf->flag;
 	char name[50];
@@ -196,16 +210,19 @@ void listprocess(ListProtocol* listbuf, ListProtocol* listresult, MYSQL* conn) {
 	switch (flag) {
 	case 3:
 		mysql_query(conn, "set names euckr");
+		//라이더의 상태가 0 (아무도 매칭 안함)인 상점의 주소, 상점 이름, 메뉴 이름, 손님 주소, 오더링 _no를 구한다.
 		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 0 limit 6");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
 	case 4:
+		//라이더 이름이 없는 광고의 이름과 _no를 구한다.
 		sprintf(query, "select _no, storename from advertisement where ridername is null limit 6");
 		mysql_query(conn, query);
 		res = mysql_store_result(conn);
 		break;
 	case 5:
+		//라이더의 상태가 1(주문 접수, 주문 완료 전), 상점의 상태가 1 (픽업 대기 완료)인 오더링 정보를 구한다.
 		mysql_query(conn, "set names euckr");
 		sprintf(query, "select o._no, o.storename, o.menuname, o.clientaddress, s.address, date_format(time_stamp, \'%%H-%%m\') from ordering as o join store as s on o.storename = s.storename where riderstatus = 1 and storestatus = 1 and ridername = (select ridername from rider where _no = %d) limit 6", listbuf->userid);
 		if (mysql_query(conn, query) != 0)
@@ -217,6 +234,9 @@ void listprocess(ListProtocol* listbuf, ListProtocol* listresult, MYSQL* conn) {
 		break;
 	}
 
+	/*
+	정보 주입 중이다.
+	*/
 	listresult->numofstore = 0;
 	while (row = mysql_fetch_row(res)) {
 		listresult->info[listresult->numofstore].no = atoi(row[0]);
@@ -237,6 +257,11 @@ void listprocess(ListProtocol* listbuf, ListProtocol* listresult, MYSQL* conn) {
 	listresult->end.addr = listbuf->start.addr;
 }
 
+/*
+* 클라이언트로 부터 선택받은 ordering에 적절한 처리를 해주는 함수.
+* 라이더의 주문 완료, 라이더의 주문 예약, 라이더의 상점 광고 매칭이 있다. 
+* 간략한 update 문으로 이를 해결하였다.
+*/
 void acceptprocess(AcceptProtocol* acceptbuf, AcceptProtocol* response, MYSQL* conn) {
 	int flag = acceptbuf->flag;
 	char query[200];
@@ -332,6 +357,7 @@ int main(int argc, char* argv[])
 		AcceptProtocol* acceptprotocol;
 
 		switch (myflag->flag) {
+		//로그인 요청을 수행하는 부분
 		case 1:
 			adminresponse = (AdminProtocol*)malloc(sizeof(AdminProtocol));
 			loginprocess((AdminProtocol*)buf, (AdminProtocol*)adminresponse, conn);
@@ -344,6 +370,7 @@ int main(int argc, char* argv[])
 			}
 
 			break;
+		//회원 가입 요청을 수행하는 부분
 		case 2:
 			adminresponse = (AdminProtocol*)malloc(sizeof(AdminProtocol));
 			registerprocess((AdminProtocol*)buf, (AdminProtocol*)adminresponse, conn);
@@ -355,6 +382,8 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			break;
+
+		// 리스트를 불러오기 위한 요청을 수행하는 부분
 		case 3: case 4: case 5:
 			listresponse = (ListProtocol*)malloc(sizeof(ListProtocol));
 			listprocess((ListProtocol*)buf, (ListProtocol*)listresponse, conn);
@@ -366,6 +395,8 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			break;
+
+		// 해당 오더링(또는 광고)의 상태를 바꾸기 위한 부분
 		case 6: case 7: case 8:
 			acceptprotocol = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
 			acceptprocess((AcceptProtocol*)buf, (AcceptProtocol*)acceptprotocol, conn);

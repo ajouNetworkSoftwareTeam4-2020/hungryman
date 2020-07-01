@@ -137,6 +137,14 @@ int main(int argc, char* argv[])
 		scanf("%d", &direction);
 		printf("\n");
 
+		/*
+		AdminProtocol에 id, password, name(회원 가입 일 경우)를 입력 받는다.
+		참고로
+		request->start.type = 0;
+		request->end.type = 1;
+		request->end.number = 2;
+		이 부분은 플랫폼을 통해 통신하기 위한 신호이다.
+		*/
 		printf("\n---------------------------------\n");
 		AdminProtocol* request = (AdminProtocol*)malloc(sizeof(AdminProtocol));
 		request->start.type = 0;
@@ -214,6 +222,10 @@ int main(int argc, char* argv[])
 			break;
 		}
 
+		/*
+		ListProtocol에 자신이 원하는 list의 속성 (광고, 배달 예약하기, 배달 완료하기)를 flag를 통해 선택한다.
+		서버에서는 flag를 보고 flag에 따라 처리한다.
+		*/
 		ListProtocol* request = (ListProtocol*)malloc(sizeof(ListProtocol));
 		request->start.type = 0;
 		request->end.type = 1;
@@ -258,7 +270,8 @@ int main(int argc, char* argv[])
 		addrlen = sizeof(peeraddr);
 		retval = recvfrom(sock, buf, BUFSIZE, 0,
 			(SOCKADDR*)&peeraddr, &addrlen);
-
+		
+		//서버로 부터 리스트를 받아와서 이를 뿌린다.
 		ListProtocol* returnlist = (ListProtocol*)buf;
 
 		printf("\n------- 선택 리스트 ---------------------------------\n");
@@ -266,7 +279,7 @@ int main(int argc, char* argv[])
 			if (whatdo == 2) {
 				printf("  %d =>  가게 이름 : %s \n",
 					i + 1, returnlist->info[i].storename);
-			}
+			} //광고랑 그냥 오더링을 뿌리는 거랑 다르게 처리한다.
 			else {
 				printf("  %d => 가게 이름 : %s    ",
 					i + 1, returnlist->info[i].storename);
@@ -295,6 +308,10 @@ int main(int argc, char* argv[])
 			printf("존재하지 않은 리스트입니다. 처음으로 돌아갑니다.\n");
 		}
 
+		/*
+		AcceptProtocol에 자신이 선택한 ordering 또는 상점의 상태를 변화시키기 위해 요청한다.
+		ordering의 _no 또는 advertisement의 _no 값을 AcceptProtocol를 통해 전달한다.
+		*/
 		AcceptProtocol* senddata = (AcceptProtocol*)malloc(sizeof(AcceptProtocol));
 		senddata->userid = identity;
 		senddata->start.type = 0;
